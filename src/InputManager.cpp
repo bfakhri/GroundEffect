@@ -78,6 +78,7 @@ void InputManager::update() {
     m_state.toggleThrottleLockPressed = false;
     m_state.toggleAirBrakesPressed = false;
     m_state.toggleHoverPressed = false;
+    m_state.toggleForceVectorsPressed = false;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -117,6 +118,7 @@ void InputManager::update() {
                         case SDLK_t:      m_keyT = true; break;
                         case SDLK_k:      m_keyK = true; break;
                         case SDLK_h:      m_keyH = true; break;
+                        case SDLK_v:      m_keyV = true; break;
                         case SDLK_b:      m_keyAbort = true; break;
                         case SDLK_r:      m_keyRestart = true; break;
                         case SDLK_c:
@@ -147,6 +149,7 @@ void InputManager::update() {
                     case SDLK_t:      m_keyT = false; break;
                     case SDLK_k:      m_keyK = false; break;
                     case SDLK_h:      m_keyH = false; break;
+                    case SDLK_v:      m_keyV = false; break;
                     case SDLK_b:      m_keyAbort = false; break;
                     case SDLK_r:      m_keyRestart = false; break;
                     case SDLK_c:
@@ -306,6 +309,9 @@ void InputManager::update() {
     if ((btnHoverToggle && !m_prevHoverBtn) || (m_keyH && !m_prevKeyH)) {
         m_state.toggleHoverPressed = true;
     }
+    if (m_keyV && !m_prevKeyV) {
+        m_state.toggleForceVectorsPressed = true;
+    }
 
     m_prevAbortBtn = btnAbort;
     m_prevBoostBtn = btnBoost;
@@ -322,6 +328,7 @@ void InputManager::update() {
     m_prevKeyT = m_keyT;
     m_prevKeyK = m_keyK;
     m_prevKeyH = m_keyH;
+    m_prevKeyV = m_keyV;
     m_prevKeyAbort = m_keyAbort;
     m_prevKeyRestart = m_keyRestart;
     m_prevKeyAddFuel = m_keyAddFuel;

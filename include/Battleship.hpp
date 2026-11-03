@@ -36,6 +36,13 @@ struct ImpactEvent {
     float damageInflicted = 0.0f; // [%] Structural damage percentage accrued
 };
 
+struct ForceVector {
+    float wx, wy;       // [m] World-space application point on hull or Center of Mass
+    float ax, ay;       // [m/s^2] World-space force/acceleration vector
+    SDL_Color color;    // Vector display color
+    std::string label;  // Short force identifier tag
+};
+
 class Battleship {
 public:
     Battleship();
@@ -89,6 +96,12 @@ public:
     void toggleHoverThrusters() { setHoverThrustersEnabled(!m_hoverThrustersEnabled); }
     float getHoverThrusterThrottle() const { return m_hoverThrusterThrottle; }
 
+    // Force Vector Visualization Overlay (ON by default)
+    bool isForceVectorsVisible() const { return m_showForceVectors; }
+    void setForceVectorsVisible(bool visible) { m_showForceVectors = visible; }
+    void toggleForceVectors() { m_showForceVectors = !m_showForceVectors; }
+    const std::vector<ForceVector>& getForceVectors() const { return m_forceVectors; }
+
     const std::vector<ThrusterParticle>& getParticles() const { return m_particles; }
     const std::vector<DebrisLine>& getDebris() const { return m_debris; }
 
@@ -111,14 +124,24 @@ public:
     static constexpr float HOVER_TARGET_ALT = 9.7536f;// [m] Target ground-effect hover clearance (32.0 ft)
     static constexpr float HOVER_MAX_ALT = 22.86f;    // [m] Max ground-effect hover engagement altitude (75.0 ft)
     static constexpr float HOVER_MAX_ACCEL = 14.0208f;// [m/s^2] Max upward acceleration of hover thrusters (46.0 ft/s^2)
+    static constexpr float HULL_INERTIA = 12.774f;    // [m^2] Specific rotational moment of inertia (r_g^2)
+    static constexpr float RCS_THRUST_ACCEL = 14.668f;// [m/s^2] Max lateral thrust acceleration from RCS thruster
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;
 
 private:
+    void applyForceAtLocalPoint(float localRx, float localRy,
+                                float localAx, float localAy,
+                                float& accumWorldAx, float& accumWorldAy,
+                                float& accumAngularAccel,
+                                const std::string& label, SDL_Color color);
     void updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                        const Terrain& terrain, SoundEngine& sound);
-    void updateHoverThrusters(float dt, float rotateInput, float diffThrust, const Terrain& terrain, SoundEngine& sound);
+    void updateHoverThrusters(float dt, float rotateInput, float diffThrust,
+                              const Terrain& terrain, SoundEngine& sound,
+                              float& accumWorldAx, float& accumWorldAy, float& accumAngularAccel);
+    void renderForceVectors(SDL_Renderer* renderer, const Camera2D& cam, float glow);
     void checkTerrainCollision(const Terrain& terrain, SoundEngine& sound);
     void triggerCrash(SoundEngine& sound);
     void triggerLanding(int multiplier, float hitY, SoundEngine& sound);
@@ -170,9 +193,11 @@ private:
     float m_rcsPuffLeft = 0.0f;      // [s] Left RCS attitude jet visual persistence timer
     float m_rcsPuffRight = 0.0f;     // [s] Right RCS attitude jet visual persistence timer
 
-    // Vector Debris
+    // Vector Debris & Force Vector Overlay
     std::vector<DebrisLine> m_debris;
     std::vector<ThrusterParticle> m_particles;
+    bool m_showForceVectors = true; // [flag] Force vector overlay enabled by default
+    std::vector<ForceVector> m_forceVectors;
 
     // Craft Local Geometry Lines (relative to center of mass)
     struct LocalLine {

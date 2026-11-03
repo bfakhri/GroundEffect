@@ -210,6 +210,15 @@ void Game::handleInput() {
         m_messageTimer = 2.5f; // [s]
     }
 
+    // Toggle Force Vector Overlay (V key; ON by default)
+    if (state.toggleForceVectorsPressed) {
+        m_battleship.toggleForceVectors();
+        m_sound.playBeep(m_battleship.isForceVectorsVisible() ? 1150.0f : 680.0f, 0.07f); // [Hz], [s]
+        m_statusMessage = m_battleship.isForceVectorsVisible() ? "FORCE VECTORS: ON" : "FORCE VECTORS: OFF";
+        m_statusSubMessage = "PRESS [V] TO TOGGLE HULL FORCE VECTOR OVERLAY";
+        m_messageTimer = 2.2f; // [s]
+    }
+
     // Cycle Landing Site
     if (state.nextSitePressed) {
         m_terrain.cycleSite();
@@ -621,6 +630,11 @@ void Game::renderTelemetry() {
     SDL_Color brakeCol = brakeOn ? SDL_Color{255, 195, 70, 255} : SDL_Color{110, 150, 130, 255};
     std::string brakeStr = brakeOn ? "BRAKE [S/K]: DEPLOYED" : "BRAKE [S/K]: OFF";
     VectorFont::drawText(m_renderer, brakeStr, baseX, baseY + 235.0f, 1.6f, brakeCol, m_crtGlow);
+
+    bool vecOn = m_battleship.isForceVectorsVisible();
+    SDL_Color vecCol = vecOn ? SDL_Color{150, 240, 190, 255} : SDL_Color{110, 150, 130, 255};
+    std::string vecStr = vecOn ? "VECTORS [V]: ON" : "VECTORS [V]: OFF";
+    VectorFont::drawText(m_renderer, vecStr, baseX, baseY + 255.0f, 1.6f, vecCol, m_crtGlow);
 }
 
 

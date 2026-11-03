@@ -21,6 +21,7 @@ struct InputState {
     bool airBrakeHeld = false;               // Momentary air brake hold (Down/S key or D-Pad Down)
     bool toggleAirBrakesPressed = false;     // Toggle air brakes lock (K key or RS click)
     bool toggleHoverPressed = false;         // Toggle ground effect hover thrusters (H key or D-Pad Up)
+    bool toggleForceVectorsPressed = false;  // Toggle force vector overlay (V key)
     bool quitRequested = false;              // Quit game (ESC or window close)
 };
 
@@ -73,6 +74,7 @@ private:
     bool m_keyT = false;
     bool m_keyK = false;
     bool m_keyH = false;
+    bool m_keyV = false;
     bool m_keyAbort = false;
     bool m_keyRestart = false;
     bool m_keyAddFuel = false;
@@ -85,6 +87,7 @@ private:
     bool m_prevKeyT = false;
     bool m_prevKeyK = false;
     bool m_prevKeyH = false;
+    bool m_prevKeyV = false;
     bool m_prevKeyAbort = false;
     bool m_prevKeyRestart = false;
     bool m_prevKeyAddFuel = false;

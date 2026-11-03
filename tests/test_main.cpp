@@ -156,6 +156,37 @@ bool testPropulsionAndDifferentialSteering() {
     CHECK(ship.getAngle() < -0.1f);
     CHECK(ship.getVx() < -0.5f);
 
+    // E. RCS Attitude Thrusters physically impart both rotational torque AND linear force from hull mounts:
+    //    - Port RCS at (-14 ft, -8 ft) firing for clockwise turn (rotateInput = +1.0) pushes hull rightward (+X)
+    ship.reset(500.0f, 200.0f);
+    ship.setVelocity(0.0f, 0.0f);
+    ship.update(DT, 0.0f, 0.0f, 1.0f, false, false, terrain, sound);
+    CHECK(ship.getAngularVel() > 0.0f); // Clockwise torque from upper-left hull mount
+    CHECK(ship.getVx() > 0.15f);        // Rightward linear acceleration on center of mass!
+
+    //    - Starboard RCS at (+14 ft, -8 ft) firing for counter-clockwise turn (rotateInput = -1.0) pushes hull leftward (-X)
+    ship.reset(500.0f, 200.0f);
+    ship.setVelocity(0.0f, 0.0f);
+    ship.update(DT, 0.0f, 0.0f, -1.0f, false, false, terrain, sound);
+    CHECK(ship.getAngularVel() < 0.0f); // Counter-clockwise torque from upper-right hull mount
+    CHECK(ship.getVx() < -0.15f);       // Leftward linear acceleration on center of mass!
+
+    // F. Force Vector Overlay is ON by default and records all active hull forces
+    CHECK(ship.isForceVectorsVisible());
+    ship.reset(500.0f, 200.0f);
+    ship.setHoverThrustersEnabled(true);
+    ship.update(DT, 1.0f, 1.0f, 1.0f, false, false, terrain, sound, true);
+    const auto& fvecs = ship.getForceVectors();
+    bool hasGrav = false, hasLThr = false, hasRThr = false, hasRcsL = false, hasNet = false;
+    for (const auto& fv : fvecs) {
+        if (fv.label == "GRAV")  hasGrav = true;
+        if (fv.label == "L.THR") hasLThr = true;
+        if (fv.label == "R.THR") hasRThr = true;
+        if (fv.label == "RCS.L") hasRcsL = true;
+        if (fv.label == "NET")   hasNet  = true;
+    }
+    CHECK(hasGrav && hasLThr && hasRThr && hasRcsL && hasNet);
+
     return true;
 }
 
