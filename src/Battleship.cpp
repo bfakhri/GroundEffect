@@ -16,7 +16,7 @@ static const float MAX_ANGULAR_VEL = 3.5f;           // [rad/s] Maximum clamped 
 static const float RCS_FUEL_BURN_RATE = 2.5f * LB2KG;// [kg/s] Fuel consumed by RCS thrusters per second at full rotation: 1.134 kg/s (converted from 2.5 lb/s)
 static const float FUEL_BURN_RATE = 28.0f * LB2KG;   // [kg/s] Fuel consumed at 100% dual throttle per second: 12.701 kg/s (converted from 28.0 lb/s)
 static const float DAMAGE_PER_VELOCITY = 0.40f / FT2M;// [%/(m/s)] Structural damage percentage accrued per m/s impact speed: 1.3123 %/(m/s)
-static const float IMPULSE_DELTA_V = 410.0f * FT2M;  // [m/s] Impulse Thruster velocity change: 124.968 m/s (increased 10x from 41.0 ft/s)
+static const float IMPULSE_DELTA_V = 205.0f * FT2M;  // [m/s] Impulse Thruster velocity change: 62.484 m/s (decreased 2x from 410.0 ft/s)
 static const float DEG2RAD = 3.1415926535f / 180.0f; // [rad/deg] Degrees to radians conversion factor
 static const float RAD2DEG = 180.0f / 3.1415926535f; // [deg/rad] Radians to degrees conversion factor
 
@@ -294,7 +294,7 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
         float thrustDirX = std::sin(m_angle);
         float thrustDirY = -std::cos(m_angle);
 
-        // Impulse magnitude: 125.0 m/s (410 ft/s) - 10x boost
+        // Impulse magnitude: 62.48 m/s (205 ft/s) - decreased 2x
         m_vx += thrustDirX * IMPULSE_DELTA_V;
         m_vy += thrustDirY * IMPULSE_DELTA_V;
 
