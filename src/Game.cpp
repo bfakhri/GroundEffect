@@ -46,17 +46,24 @@ bool Game::init(int width, int height) {
     m_sound.init();
     m_input.init();
 
+    const auto& pads = m_terrain.getLandingPads();
+    if (!pads.empty()) {
+        float startX = (pads[0].x1 + pads[0].x2) * 0.5f;
+        float startY = pads[0].y - 12.0f * FT2M;
+        m_lander.resetLanded(startX, startY);
+    }
+
     m_camera.screenWidth = m_screenWidth;   // [px]
     m_camera.screenHeight = m_screenHeight; // [px]
     m_camera.x = m_lander.getX();           // [m]
     m_camera.y = m_lander.getY();           // [m]
-    m_camera.zoom = 1.0f / FT2M;            // [px/m] (3.28084 px/m base zoom)
+    m_camera.zoom = 2.10f / FT2M;           // [px/m] (high-magnification closeup view when landed)
 
     initStars();
 
     m_running = true;
-    m_statusMessage = "READY FOR DESCENT";
-    m_statusSubMessage = "USE [RT] TRIGGER TO CONTROL THRUST";
+    m_statusMessage = "READY FOR LAUNCH";
+    m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
     m_messageTimer = 3.5f; // [s]
 
     return true;
@@ -162,9 +169,17 @@ void Game::handleInput() {
     if (state.nextSitePressed) {
         m_terrain.cycleSite();
         m_sound.playBeep(750.0f, 0.08f); // [Hz], [s]
-        m_lander.reset(1000.0f * FT2M, 350.0f * FT2M, std::max(m_lander.getFuel(), 600.0f * LB2KG)); // [m], [m], [kg]
+        const auto& pads = m_terrain.getLandingPads();
+        if (!pads.empty()) {
+            float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
+            float padSurfaceY = pads[0].y - 12.0f * FT2M;
+            m_lander.resetLanded(padCenterX, padSurfaceY, std::max(m_lander.getFuel(), 600.0f * LB2KG));
+        }
+        m_camera.x = m_lander.getX();
+        m_camera.y = m_lander.getY();
+        m_camera.zoom = 2.10f / FT2M;
         m_statusMessage = "MISSION: " + m_terrain.getSiteName();
-        m_statusSubMessage = "TOUCH DOWN ON DESIGNATED MULTIPLIER PADS";
+        m_statusSubMessage = "LANDED ON PAD - READY FOR LAUNCH";
         m_messageTimer = 3.0f; // [s]
     }
 
@@ -172,9 +187,17 @@ void Game::handleInput() {
     if (state.restartPressed) {
         if (m_lander.getState() == LanderState::CRASHED || m_lander.getState() == LanderState::LANDED) {
             float nextFuel = (m_lander.getFuel() < 250.0f * LB2KG) ? 750.0f * LB2KG : m_lander.getFuel(); // [kg]
-            m_lander.reset((800.0f + (std::rand() % 1500)) * FT2M, 320.0f * FT2M, nextFuel);              // [m], [m], [kg]
-            m_statusMessage = "DESCENDING - GOOD LUCK!";
-            m_statusSubMessage = "WATCH HORIZONTAL AND VERTICAL SPEED";
+            const auto& pads = m_terrain.getLandingPads();
+            if (!pads.empty()) {
+                float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
+                float padSurfaceY = pads[0].y - 12.0f * FT2M;
+                m_lander.resetLanded(padCenterX, padSurfaceY, nextFuel);
+            }
+            m_camera.x = m_lander.getX();
+            m_camera.y = m_lander.getY();
+            m_camera.zoom = 2.10f / FT2M;
+            m_statusMessage = "READY FOR LAUNCH";
+            m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
             m_messageTimer = 2.5f; // [s]
             m_sound.playBeep(1000.0f, 0.1f); // [Hz], [s]
         }

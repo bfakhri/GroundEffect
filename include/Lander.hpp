@@ -31,6 +31,7 @@ public:
     Lander();
 
     void reset(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg] (converted from 750.0 lb)
+    void resetLanded(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg]
     void update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered,
                 const Terrain& terrain, SoundEngine& sound); // dt [s], throttle in [0.0 - 1.0], rotateInput in [-1.0 to +1.0]
 

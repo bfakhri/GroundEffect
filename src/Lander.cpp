@@ -32,7 +32,7 @@ static inline float applyThrustCurve(float t) {
 
 Lander::Lander() {
     initCraftGeometry();
-    reset(800.0f * FT2M, 350.0f * FT2M, 750.0f * LB2KG); // [m] 243.84 m, [m] 106.68 m, [kg] 340.194 kg
+    resetLanded(975.0f * FT2M, (1720.0f - 12.0f) * FT2M, 750.0f * LB2KG); // [m] 297.18 m, [m] 520.598 m, [kg] 340.194 kg
 }
 
 void Lander::initCraftGeometry() {
@@ -119,6 +119,15 @@ void Lander::reset(float startX, float startY, float startFuel) {
     m_debris.clear();
 }
 
+void Lander::resetLanded(float startX, float startY, float startFuel) {
+    reset(startX, startY, startFuel);
+    m_state = LanderState::LANDED;
+    m_vx = 0.0f;
+    m_vy = 0.0f;
+    m_angle = 0.0f;
+    m_angularVel = 0.0f;
+}
+
 bool Lander::isSafeSpeed() const {
     return std::abs(m_vx) <= SAFE_MAX_VX && m_vy <= SAFE_MAX_VY && m_vy >= -10.0f * FT2M; // [m/s]
 }
@@ -146,10 +155,40 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     }
 
     if (m_state == LanderState::LANDED) {
-        sound.setThrust(0.0f);
-        m_throttleLeft = 0.0f;
-        m_throttleRight = 0.0f;
-        return;
+        // While landed, check if pilot applies sufficient upward thrust to take off
+        float rawThrottleLeft = throttleLeft;
+        float rawThrottleRight = throttleRight;
+        if (!m_unlimitedFuel && m_fuel <= 0.0f) {
+            rawThrottleLeft = 0.0f;
+            rawThrottleRight = 0.0f;
+        }
+        float appliedThrottleLeft = applyThrustCurve(rawThrottleLeft);
+        float appliedThrottleRight = applyThrustCurve(rawThrottleRight);
+        float totalThrottle = appliedThrottleLeft + appliedThrottleRight;
+
+        m_throttleLeft = appliedThrottleLeft;
+        m_throttleRight = appliedThrottleRight;
+        sound.setThrust(std::clamp(totalThrottle * 0.6f, 0.0f, 1.0f));
+
+        if (!m_unlimitedFuel && totalThrottle > 0.0f && m_fuel > 0.0f) {
+            float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt;
+            m_fuel = std::max(0.0f, m_fuel - fuelUsed);
+        }
+
+        float totalThrustAccel = totalThrottle * THRUST_PER_ENGINE;
+        float ay = -totalThrustAccel + GRAVITY;
+
+        if (ay < -0.1f) {
+            m_state = LanderState::FLYING;
+            m_vy += ay * dt;
+            m_y += m_vy * dt;
+        } else {
+            m_vx = 0.0f;
+            m_vy = 0.0f;
+            m_angle = 0.0f;
+            m_angularVel = 0.0f;
+            return;
+        }
     }
 
     // Decay impact timers
