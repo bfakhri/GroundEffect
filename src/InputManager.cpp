@@ -67,7 +67,9 @@ void InputManager::setRumble(float lowFreq, float highFreq, uint32_t durationMs)
 void InputManager::update() {
     // Reset one-shot edge triggers
     m_state.abortPressed = false;
+    m_state.boostPressed = false;
     m_state.restartPressed = false;
+    m_state.manualRestartPressed = false;
     m_state.addFuelPressed = false;
     m_state.nextSitePressed = false;
     m_state.pausePressed = false;
@@ -179,15 +181,13 @@ void InputManager::update() {
             ctrlThrottleRight = (float)(rtValue - TRIGGER_DEADZONE) / (32767.0f - TRIGGER_DEADZONE);
         }
 
-        // 'A' Button: also provides full thrust to both engines if pressed (or acts as select/restart/boost)
+        // 'A' Button or Bumpers: Impulse Thruster boost (A also acts as restart after crash)
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A) ||
             SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
             SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
             btnBoost = true;
         }
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A)) {
-            ctrlThrottleLeft = std::max(ctrlThrottleLeft, 0.90f);
-            ctrlThrottleRight = std::max(ctrlThrottleRight, 0.90f);
             btnRestart = true;
         }
 
