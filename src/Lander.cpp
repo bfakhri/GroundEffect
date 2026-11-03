@@ -39,61 +39,97 @@ Lander::Lander() {
 void Lander::initCraftGeometry() {
     m_craftLines.clear();
 
-    // 1. Descent Stage (Octagonal core) [m]
-    m_craftLines.push_back({-10.0f * FT2M, 0.0f * FT2M, 10.0f * FT2M, 0.0f * FT2M});      // Lower deck
-    m_craftLines.push_back({-10.0f * FT2M, -10.0f * FT2M, 10.0f * FT2M, -10.0f * FT2M});  // Upper deck
-    m_craftLines.push_back({-14.0f * FT2M, -4.0f * FT2M, -14.0f * FT2M, -6.0f * FT2M});   // Left side
-    m_craftLines.push_back({14.0f * FT2M, -4.0f * FT2M, 14.0f * FT2M, -6.0f * FT2M});     // Right side
+    // ── 1. Armored Citadel & Main Hull ──────────────────────────────────────
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M,  11.0f * FT2M,  0.0f * FT2M});    // Keel / Bottom armor plate
+    m_craftLines.push_back({-15.0f * FT2M, -6.0f * FT2M,  15.0f * FT2M, -6.0f * FT2M});    // Mid-deck armor seam
+    m_craftLines.push_back({-12.0f * FT2M, -12.0f * FT2M, 12.0f * FT2M, -12.0f * FT2M});   // Upper citadel deck
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -16.0f * FT2M, -4.0f * FT2M});    // Port lower armor facet
+    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});    // Starboard lower armor facet
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -8.0f * FT2M});    // Port belt armor
+    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -8.0f * FT2M});    // Starboard belt armor
+    m_craftLines.push_back({-15.0f * FT2M, -8.0f * FT2M, -12.0f * FT2M, -12.0f * FT2M});   // Port upper armor facet
+    m_craftLines.push_back({ 15.0f * FT2M, -8.0f * FT2M,  12.0f * FT2M, -12.0f * FT2M});   // Starboard upper armor facet
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});    // Longitudinal armor bulkhead
 
-    m_craftLines.push_back({-14.0f * FT2M, -4.0f * FT2M, -10.0f * FT2M, 0.0f * FT2M});    // Bottom-left bevel
-    m_craftLines.push_back({14.0f * FT2M, -4.0f * FT2M, 10.0f * FT2M, 0.0f * FT2M});      // Bottom-right bevel
-    m_craftLines.push_back({-14.0f * FT2M, -6.0f * FT2M, -10.0f * FT2M, -10.0f * FT2M});  // Top-left bevel
-    m_craftLines.push_back({14.0f * FT2M, -6.0f * FT2M, 10.0f * FT2M, -10.0f * FT2M});    // Top-right bevel
+    // ── 2. Command Bridge Superstructure & Sensor Mast ───────────────────────
+    m_craftLines.push_back({-10.0f * FT2M, -12.0f * FT2M, -6.0f * FT2M, -18.0f * FT2M});  // Port bridge riser
+    m_craftLines.push_back({ 10.0f * FT2M, -12.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});  // Starboard bridge riser
+    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});   // Bridge command deck
+    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M, -4.0f * FT2M, -20.5f * FT2M});  // Port conning tower
+    m_craftLines.push_back({ 6.0f * FT2M, -18.0f * FT2M,  4.0f * FT2M, -20.5f * FT2M});  // Starboard conning tower
+    m_craftLines.push_back({-4.0f * FT2M, -20.5f * FT2M,  4.0f * FT2M, -20.5f * FT2M});  // Bridge roof
+    // Armored Viewport Visor
+    m_craftLines.push_back({-4.5f * FT2M, -18.8f * FT2M,  4.5f * FT2M, -18.8f * FT2M});
+    // Forward Sensor Array / Targeting Mast
+    m_craftLines.push_back({ 0.0f * FT2M, -20.5f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Main antenna mast
+    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  2.5f * FT2M, -22.0f * FT2M});  // Radar crossbar
+    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Sensor vane port
+    m_craftLines.push_back({ 2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Sensor vane starboard
 
-    // 2. Twin Engine Nozzles (Bells underneath lower deck, laterally displaced) [m]
-    // Left Nozzle (centered at x = -5.5 ft = -1.68 m)
-    m_craftLines.push_back({-7.5f * FT2M, 0.0f * FT2M, -8.5f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-3.5f * FT2M, 0.0f * FT2M, -2.5f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-8.5f * FT2M, 5.0f * FT2M, -2.5f * FT2M, 5.0f * FT2M});
+    // ── 3. Twin Heavy Artillery Turrets (Dual-Barrel Main Cannons) ───────────
+    // Port Cannon Turret
+    m_craftLines.push_back({-8.5f * FT2M, -12.0f * FT2M, -7.5f * FT2M, -14.5f * FT2M}); // Turret housing
+    m_craftLines.push_back({-7.5f * FT2M, -14.5f * FT2M, -3.5f * FT2M, -14.5f * FT2M});
+    m_craftLines.push_back({-3.5f * FT2M, -14.5f * FT2M, -2.5f * FT2M, -12.0f * FT2M});
+    m_craftLines.push_back({-6.5f * FT2M, -14.5f * FT2M, -6.5f * FT2M, -17.5f * FT2M}); // Left barrel
+    m_craftLines.push_back({-4.5f * FT2M, -14.5f * FT2M, -4.5f * FT2M, -17.5f * FT2M}); // Right barrel
+    m_craftLines.push_back({-7.0f * FT2M, -17.5f * FT2M, -4.0f * FT2M, -17.5f * FT2M}); // Muzzle brake
 
-    // Right Nozzle (centered at x = +5.5 ft = +1.68 m)
-    m_craftLines.push_back({3.5f * FT2M, 0.0f * FT2M, 2.5f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({7.5f * FT2M, 0.0f * FT2M, 8.5f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({2.5f * FT2M, 5.0f * FT2M, 8.5f * FT2M, 5.0f * FT2M});
+    // Starboard Cannon Turret
+    m_craftLines.push_back({ 2.5f * FT2M, -12.0f * FT2M,  3.5f * FT2M, -14.5f * FT2M}); // Turret housing
+    m_craftLines.push_back({ 3.5f * FT2M, -14.5f * FT2M,  7.5f * FT2M, -14.5f * FT2M});
+    m_craftLines.push_back({ 7.5f * FT2M, -14.5f * FT2M,  8.5f * FT2M, -12.0f * FT2M});
+    m_craftLines.push_back({ 4.5f * FT2M, -14.5f * FT2M,  4.5f * FT2M, -17.5f * FT2M}); // Left barrel
+    m_craftLines.push_back({ 6.5f * FT2M, -14.5f * FT2M,  6.5f * FT2M, -17.5f * FT2M}); // Right barrel
+    m_craftLines.push_back({ 4.0f * FT2M, -17.5f * FT2M,  7.0f * FT2M, -17.5f * FT2M}); // Muzzle brake
 
-    // 3. Ascent Stage (Cabin on top) [m]
-    m_craftLines.push_back({-8.0f * FT2M, -10.0f * FT2M, -6.0f * FT2M, -18.0f * FT2M});   // Cabin left wall
-    m_craftLines.push_back({6.0f * FT2M, -18.0f * FT2M, 8.0f * FT2M, -10.0f * FT2M});     // Cabin right wall
-    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M, 6.0f * FT2M, -18.0f * FT2M});    // Cabin roof
-    m_craftLines.push_back({-3.0f * FT2M, -18.0f * FT2M, -3.0f * FT2M, -21.0f * FT2M});   // Docking port left
-    m_craftLines.push_back({3.0f * FT2M, -18.0f * FT2M, 3.0f * FT2M, -21.0f * FT2M});     // Docking port right
-    m_craftLines.push_back({-3.0f * FT2M, -21.0f * FT2M, 3.0f * FT2M, -21.0f * FT2M});    // Docking port top
+    // ── 4. Flank Torpedo Sponsons & Missile Pods ──────────────────────────────
+    // Port Sponson
+    m_craftLines.push_back({-15.0f * FT2M, -7.5f * FT2M, -19.5f * FT2M, -5.5f * FT2M});
+    m_craftLines.push_back({-19.5f * FT2M, -5.5f * FT2M, -19.5f * FT2M, -2.5f * FT2M});
+    m_craftLines.push_back({-19.5f * FT2M, -2.5f * FT2M, -15.0f * FT2M, -1.0f * FT2M});
+    m_craftLines.push_back({-19.5f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -4.0f * FT2M}); // Sponson launcher tube
 
-    // Cockpit Window (Triangles) [m]
-    m_craftLines.push_back({-5.0f * FT2M, -15.0f * FT2M, -1.0f * FT2M, -15.0f * FT2M});
-    m_craftLines.push_back({-1.0f * FT2M, -15.0f * FT2M, -3.0f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({-3.0f * FT2M, -12.0f * FT2M, -5.0f * FT2M, -15.0f * FT2M});
+    // Starboard Sponson
+    m_craftLines.push_back({ 15.0f * FT2M, -7.5f * FT2M,  19.5f * FT2M, -5.5f * FT2M});
+    m_craftLines.push_back({ 19.5f * FT2M, -5.5f * FT2M,  19.5f * FT2M, -2.5f * FT2M});
+    m_craftLines.push_back({ 19.5f * FT2M, -2.5f * FT2M,  15.0f * FT2M, -1.0f * FT2M});
+    m_craftLines.push_back({ 19.5f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -4.0f * FT2M}); // Sponson launcher tube
 
-    m_craftLines.push_back({1.0f * FT2M, -15.0f * FT2M, 5.0f * FT2M, -15.0f * FT2M});
-    m_craftLines.push_back({5.0f * FT2M, -15.0f * FT2M, 3.0f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({3.0f * FT2M, -12.0f * FT2M, 1.0f * FT2M, -15.0f * FT2M});
+    // ── 5. Armored Twin Engine Cowlings & Centerline Reactor Core ────────────
+    // Port Engine (Nozzle exit centered at x = -5.5 ft = -1.68 m)
+    m_craftLines.push_back({-9.0f * FT2M, 0.0f * FT2M, -9.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({-9.0f * FT2M, 5.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M}); // Exhaust bell lip
+    m_craftLines.push_back({-8.0f * FT2M, 2.5f * FT2M, -3.0f * FT2M, 2.5f * FT2M}); // Throat ring
 
-    // 4. Landing Gear (Struts and Footpads) [m]
-    // Left gear strut: from (-3.05 m, -0.61 m) to footpad at (-5.49 m, 3.66 m)
-    m_craftLines.push_back({-10.0f * FT2M, -2.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({-5.0f * FT2M, 0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});     // Cross brace
-    m_craftLines.push_back({-22.0f * FT2M, 12.0f * FT2M, -14.0f * FT2M, 12.0f * FT2M});   // Left footpad horizontal dish
+    // Starboard Engine (Nozzle exit centered at x = +5.5 ft = +1.68 m)
+    m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  2.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({ 9.0f * FT2M, 0.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({ 2.0f * FT2M, 5.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M}); // Exhaust bell lip
+    m_craftLines.push_back({ 3.0f * FT2M, 2.5f * FT2M,  8.0f * FT2M, 2.5f * FT2M}); // Throat ring
 
-    // Right gear strut: from (3.05 m, -0.61 m) to footpad at (5.49 m, 3.66 m)
-    m_craftLines.push_back({10.0f * FT2M, -2.0f * FT2M, 18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({5.0f * FT2M, 0.0f * FT2M, 18.0f * FT2M, 12.0f * FT2M});       // Cross brace
-    m_craftLines.push_back({14.0f * FT2M, 12.0f * FT2M, 22.0f * FT2M, 12.0f * FT2M});     // Right footpad horizontal dish
+    // Central Auxiliary Reactor Core Exhaust
+    m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -1.5f * FT2M, 3.0f * FT2M});
+    m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
+    m_craftLines.push_back({-1.5f * FT2M, 3.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
 
-    // Inward secondary struts [m]
-    m_craftLines.push_back({-7.0f * FT2M, 6.0f * FT2M, -11.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({7.0f * FT2M, 6.0f * FT2M, 11.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({-14.0f * FT2M, 12.0f * FT2M, -8.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({8.0f * FT2M, 12.0f * FT2M, 14.0f * FT2M, 12.0f * FT2M});
+    // ── 6. Reinforced Combat Landing Skids ────────────────────────────────────
+    // Port Combat Landing Gear & Armored Skid
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Heavy primary strut
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Armored piston brace
+    m_craftLines.push_back({ -6.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Inward compression strut
+    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -13.0f * FT2M, 12.0f * FT2M}); // Ground contact runner
+    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -25.0f * FT2M,  9.5f * FT2M}); // Front upturned skid bow
+    m_craftLines.push_back({-13.0f * FT2M, 12.0f * FT2M, -11.0f * FT2M,  9.5f * FT2M}); // Rear upturned skid heel
+
+    // Starboard Combat Landing Gear & Armored Skid
+    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Heavy primary strut
+    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Armored piston brace
+    m_craftLines.push_back({  6.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Inward compression strut
+    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  23.0f * FT2M, 12.0f * FT2M}); // Ground contact runner
+    m_craftLines.push_back({ 23.0f * FT2M, 12.0f * FT2M,  25.0f * FT2M,  9.5f * FT2M}); // Front upturned skid bow
+    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M}); // Rear upturned skid heel
 }
 
 void Lander::reset(float startX, float startY, float startFuel) {
