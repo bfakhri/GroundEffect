@@ -21,7 +21,6 @@ static const float MAX_ANGULAR_VEL = 3.5f;           // [rad/s] Maximum clamped 
 static const float RCS_FUEL_BURN_RATE = 2.5f * LB2KG;// [kg/s] Fuel consumed by RCS thrusters per second at full rotation: 1.134 kg/s (converted from 2.5 lb/s)
 static const float FUEL_BURN_RATE = 28.0f * LB2KG;   // [kg/s] Fuel consumed at 100% dual throttle per second: 12.701 kg/s (converted from 28.0 lb/s)
 static const float DAMAGE_PER_VELOCITY = 0.40f / FT2M;// [%/(m/s)] Structural damage percentage accrued per m/s impact speed: 1.3123 %/(m/s)
-static const float IMPULSE_DELTA_V = 4.10f * FT2M;    // [m/s] Impulse Thruster velocity change: 1.24968 m/s (reduced by 10x from 41.0 ft/s)
 static const float DEG2RAD = 3.1415926535f / 180.0f; // [rad/deg] Degrees to radians conversion factor
 static const float RAD2DEG = 180.0f / 3.1415926535f; // [deg/rad] Radians to degrees conversion factor
 
@@ -165,7 +164,8 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     }
 
     if (m_state == LanderState::LANDED) {
-        if (boostTriggered && (m_unlimitedFuel || m_fuel > 1.0f * LB2KG)) {
+        if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
+            static const float IMPULSE_DELTA_V = 41.0f * FT2M; // [m/s] 12.4968 m/s
             m_state = LanderState::FLYING;
             m_takeoffCooldown = 0.6f;
             m_vy = -IMPULSE_DELTA_V;
@@ -176,7 +176,7 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
             sound.playImpulseBoost();
             spawnImpulseParticles();
             if (!m_unlimitedFuel) {
-                m_fuel = std::max(0.0f, m_fuel - 1.5f * LB2KG);
+                m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG);
             }
             return;
         }
@@ -257,13 +257,14 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
     float appliedRotate = rotateInput;      // [-1.0 to +1.0, dimensionless]
 
     // Impulse Thruster one-frame boost via main thrusters
-    if (boostTriggered && (m_unlimitedFuel || m_fuel > 1.0f * LB2KG)) {
+    if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
         m_impulseBoostActive = true;
         // The main thruster direction is along the craft's longitudinal axis: (sin(angle), -cos(angle))
         float thrustDirX = std::sin(m_angle);
         float thrustDirY = -std::cos(m_angle);
 
-        // Impulse magnitude: 1.25 m/s (4.1 ft/s) - reduced by 10x
+        // Impulse magnitude: 12.5 m/s (41 ft/s) - stops medium velocity fall cold
+        static const float IMPULSE_DELTA_V = 41.0f * FT2M; // [m/s] 12.4968 m/s
         m_vx += thrustDirX * IMPULSE_DELTA_V;
         m_vy += thrustDirY * IMPULSE_DELTA_V;
 
@@ -274,7 +275,7 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
         sound.playImpulseBoost();
 
         if (!m_unlimitedFuel) {
-            m_fuel = std::max(0.0f, m_fuel - 1.5f * LB2KG); // [kg] Propellant cost
+            m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG); // [kg] Propellant cost
         }
     }
 
