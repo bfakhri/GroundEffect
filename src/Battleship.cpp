@@ -684,32 +684,40 @@ void Battleship::spawnImpulseParticles() {
         float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
         float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
 
-        for (int i = 0; i < 45; ++i) {
-            if (m_particles.size() >= 1200) break;
+        // Explosive, less directional impulse shockwave: spawn a dense, wide starburst blast
+        for (int i = 0; i < 85; ++i) {
+            if (m_particles.size() >= 1400) break;
             ThrusterParticle p;
-            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 1.0f * FT2M;
+            p.isImpulse = true;
+
+            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.5f * FT2M;
             p.x = nozzleWx + perpDx * mouthOffset;
             p.y = nozzleWy + perpDy * mouthOffset;
 
-            // Extra high burst velocity for impulse shockwave
-            float speed = (440.0f + (std::rand() % 120)) * FT2M; // [m/s]
-            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.06f; // Tightly focused
-            float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
-            float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
+            // Highly explosive omnidirectional / wide radial blast (less directional)
+            // Wide blast angle across +/- 135 degrees relative to downward thrust axis
+            float blastAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 4.7f; // ~ +/- 135 deg
+            float dirX = exDx * std::cos(blastAngle) + perpDx * std::sin(blastAngle);
+            float dirY = exDy * std::cos(blastAngle) + perpDy * std::sin(blastAngle);
+
+            // Explosive blast speeds: 380 ft/s to 720 ft/s (115 to 220 m/s)
+            float speed = (380.0f + (std::rand() % 340)) * FT2M;
 
             p.vx = m_vx * 0.15f + dirX * speed;
             p.vy = m_vy * 0.15f + dirY * speed;
-            p.maxLife = 0.35f + ((float)(std::rand() % 25) / 100.0f);
+            p.maxLife = 0.40f + ((float)(std::rand() % 35) / 100.0f); // Longer explosive lifetime
             p.life = p.maxLife;
             p.bounceCount = 0;
 
-            int colorType = std::rand() % 3;
+            int colorType = std::rand() % 4;
             if (colorType == 0) {
-                p.color = {255, 255, 245, 255}; // Blazing white
+                p.color = {255, 255, 255, 255}; // Blazing supernova white
             } else if (colorType == 1) {
-                p.color = {255, 225, 110, 255}; // Brilliant yellow-gold
+                p.color = {210, 245, 255, 255}; // Electric cyan-white blast
+            } else if (colorType == 2) {
+                p.color = {255, 230, 90, 255};  // Brilliant yellow-gold
             } else {
-                p.color = {255, 150, 40, 255};  // High-intensity orange
+                p.color = {255, 140, 35, 255};  // High-intensity vector plasma orange
             }
             m_particles.push_back(p);
         }
@@ -727,8 +735,8 @@ void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
         float oldY = p.y;
 
         p.vy += GRAVITY * 0.25f * dt;
-        p.vx *= (1.0f - 0.35f * dt);
-        p.vy *= (1.0f - 0.35f * dt);
+        p.vx *= (1.0f - 0.30f * dt);
+        p.vy *= (1.0f - 0.30f * dt);
 
         float nextX = p.x + p.vx * dt;
         float nextY = p.y + p.vy * dt;
@@ -746,15 +754,33 @@ void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
             if (terrain.castRay(oldX, oldY, dirX, dirY, moveDist, hit)) {
                 float dot = p.vx * hit.normalX + p.vy * hit.normalY;
                 if (dot < 0.0f) {
-                    float restitution = 0.58f;
-                    float randScatter = (((float)(std::rand() % 100) / 100.0f) - 0.5f) * 4.0f * FT2M;
-                    p.vx = (p.vx - (1.0f + restitution) * dot * hit.normalX) + hit.normalY * randScatter;
-                    p.vy = (p.vy - (1.0f + restitution) * dot * hit.normalY) - hit.normalX * randScatter;
+                    float inSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
 
-                    p.x = oldX + dirX * hit.dist + hit.normalX * 0.15f;
-                    p.y = oldY + dirY * hit.dist + hit.normalY * 0.15f;
+                    // Terrain surface tangent
+                    float tangentX = -hit.normalY;
+                    float tangentY =  hit.normalX;
+
+                    // Wide dispersion angle across the upper hemisphere (+/- 78 degrees relative to surface normal)
+                    float psi = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.7f; // ~ +/- 77.3 deg
+                    float cosPsi = std::cos(psi);
+                    float sinPsi = std::sin(psi);
+
+                    // Rebound direction guaranteed to point into open space above surface (cosPsi > 0.22)
+                    float rebDirX = hit.normalX * cosPsi + tangentX * sinPsi;
+                    float rebDirY = hit.normalY * cosPsi + tangentY * sinPsi;
+
+                    // Retain strong velocity after bounce so dispersed streaks shoot far across terrain
+                    float speedRetain = p.isImpulse ? (0.65f + ((float)(std::rand() % 30) / 100.0f))
+                                                    : (0.45f + ((float)(std::rand() % 35) / 100.0f));
+                    float reboundSpeed = std::max(35.0f * FT2M, inSpeed * speedRetain);
+
+                    p.vx = rebDirX * reboundSpeed;
+                    p.vy = rebDirY * reboundSpeed;
+
+                    p.x = oldX + dirX * hit.dist + hit.normalX * 0.25f;
+                    p.y = oldY + dirY * hit.dist + hit.normalY * 0.25f;
                     p.bounceCount++;
-                    p.life *= 0.85f;
+                    p.life *= (p.isImpulse ? 0.90f : 0.85f);
                     bounced = true;
                 }
             }
@@ -765,11 +791,15 @@ void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
             p.y = nextY;
             float surfY = terrain.getSurfaceHeightAt(p.x);
             if (p.y >= surfY) {
-                p.y = surfY - 0.1f;
-                if (p.vy > 0.0f) {
-                    p.vy = -p.vy * 0.5f;
-                    p.bounceCount++;
-                }
+                p.y = surfY - 0.2f;
+                float currentSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
+                float rebSpeed = std::max(30.0f * FT2M, currentSpeed * (p.isImpulse ? 0.70f : 0.50f));
+                // Wide dispersion angle across upper hemisphere [-76 deg, +76 deg]
+                float angle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.65f;
+                p.vx = std::sin(angle) * rebSpeed;
+                p.vy = -std::abs(std::cos(angle)) * rebSpeed;
+                p.bounceCount++;
+                p.life *= (p.isImpulse ? 0.90f : 0.85f);
             }
         }
 
@@ -833,14 +863,29 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         col.a = alpha;
 
         float speed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
-        // High-velocity tracer streak proportional to particle speed
-        float streakLen = std::clamp(speed * 0.035f, 0.4f * FT2M, 5.0f * FT2M);
+
+        float streakLen;
+        int thickness = 1;
+        float particleGlow = glow * 1.4f;
+
+        if (p.isImpulse) {
+            // Impulse streaks are much bigger, thicker, and explosive (up to 24 ft / 7.3m long!)
+            streakLen = std::clamp(speed * 0.075f, 3.5f * FT2M, 24.0f * FT2M);
+            thickness = 2;
+            particleGlow = glow * 2.4f;
+        } else {
+            // High-velocity tracer streak proportional to particle speed
+            // If it has bounced, ensure ricochet streaks disperse with clear visibility
+            float minLen = (p.bounceCount > 0) ? 0.6f * FT2M : 0.4f * FT2M;
+            streakLen = std::clamp(speed * 0.035f, minLen, 5.0f * FT2M);
+        }
+
         float sx1 = p.x;
         float sy1 = p.y;
         float sx2 = p.x - (p.vx / (speed + 1e-4f)) * streakLen;
         float sy2 = p.y - (p.vy / (speed + 1e-4f)) * streakLen;
 
-        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, glow * 1.4f, 1);
+        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, particleGlow, thickness);
     }
 
     if (m_state == BattleshipState::CRASHED) {

@@ -27,6 +27,7 @@ struct ThrusterParticle {
     float maxLife;       // [s] Initial total lifetime
     int bounceCount = 0; // [count] Number of terrain bounces
     SDL_Color color;     // Base color
+    bool isImpulse = false; // [flag] True for high-energy explosive impulse blast streaks
 };
 
 struct ImpactEvent {
