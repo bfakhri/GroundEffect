@@ -247,7 +247,11 @@ void Game::update(float dt) {
         m_input.setRumble(0.85f, 0.90f, 180);
         m_impactRumbleHoldTimer = 0.18f;
         m_statusMessage = "IMPULSE THRUSTER!";
-        m_statusSubMessage = "ONE-FRAME RETRO BOOST APPLIED";
+        if (m_battleship.getGroundEffectMagnitude() > 0.20f) {
+            m_statusSubMessage = "IMPULSE GROUND EFFECT CUSHION ACTIVE";
+        } else {
+            m_statusSubMessage = "ONE-FRAME RETRO BOOST APPLIED";
+        }
         m_messageTimer = 1.2f;
     }
 

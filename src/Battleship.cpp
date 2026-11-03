@@ -199,11 +199,14 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
         if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
             m_state = BattleshipState::FLYING;
             m_takeoffCooldown = 0.6f;
-            m_vy = -IMPULSE_DELTA_V;
+            // Impulse ground effect cushion at surface (2x normal ground effect size/strength)
+            static const float IMPULSE_GE_MAX_TOTAL_DV = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V; // [m/s] 26.24 m/s (86.1 ft/s)
+            m_vy = -(IMPULSE_DELTA_V + IMPULSE_GE_MAX_TOTAL_DV);
             m_y += m_vy * dt;
             m_throttleLeft = 1.0f;
             m_throttleRight = 1.0f;
             m_impulseBoostActive = true;
+            m_groundEffectMagnitude = 1.0f;
             sound.playImpulseBoost();
             spawnImpulseParticles();
             if (!m_unlimitedFuel) {
@@ -409,6 +412,14 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     static const float GE_FALLOFF         = 65.0f * FT2M;           // [m] Exponential decay length: 19.812 m (converted from 65.0 ft)
     static const float GE_TORQUE_SCALE    = 0.018f / (FT2M * FT2M); // [rad/(m*s^2)] Moment arm scaling for torque: 0.19375 (converted from 0.018)
 
+    // Impulse Thruster Ground Effect: 2x the size (reach and falloff length) of normal thrusters
+    static const int   IMPULSE_GE_NUM_RAYS        = 11;                     // [count] Rays per nozzle for impulse
+    static const float IMPULSE_GE_CONE_HALF_ANGLE = 0.8727f;                // [rad] ±50 degrees wide burst cone
+    static const float IMPULSE_GE_MAX_DIST        = 2.0f * GE_MAX_DIST;    // [m] 2x size reach: 360 ft (109.73 m)
+    static const float IMPULSE_GE_FALLOFF         = 2.0f * GE_FALLOFF;     // [m] 2x size falloff: 130 ft (39.62 m)
+    static const float IMPULSE_GE_MAX_TOTAL_DV    = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V; // [m/s] 26.243 m/s (86.1 ft/s)
+    static const float IMPULSE_GE_DV_PER_RAY      = IMPULSE_GE_MAX_TOTAL_DV / (2.0f * (float)IMPULSE_GE_NUM_RAYS); // [m/s]
+
     // Exhaust direction in world space: battleship local "down" = (-sinA, cosA)
     // (Verified: at angle=0 this gives (0,+1) = screen-down, matching flame rendering)
     float cosA = std::cos(m_angle);
@@ -470,15 +481,62 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
         }
     }
 
-    // Apply ground effect to velocity and rotation
+    // Apply continuous ground effect to velocity and rotation
     m_vx += geAccelX * dt;         // [m/s]
     m_vy += geAccelY * dt;         // [m/s]
     m_angularVel += geTorque * dt; // [rad/s]
+
+    // ── Instantaneous Impulse Thruster Ground Effect ──────────────────────────
+    float impulseGeDeltaVx = 0.0f; // [m/s]
+    float impulseGeDeltaVy = 0.0f; // [m/s]
+    float impulseGeTorque   = 0.0f; // [rad/s]
+
+    if (m_impulseBoostActive) {
+        for (const auto& nozzle : nozzles) {
+            for (int r = 0; r < IMPULSE_GE_NUM_RAYS; ++r) {
+                float spread = (IMPULSE_GE_NUM_RAYS > 1)
+                    ? IMPULSE_GE_CONE_HALF_ANGLE * (2.0f * r / (IMPULSE_GE_NUM_RAYS - 1) - 1.0f)
+                    : 0.0f;
+                float cosS = std::cos(spread);
+                float sinS = std::sin(spread);
+
+                float rayDx = exhaustDx * cosS + perpDx * sinS;
+                float rayDy = exhaustDy * cosS + perpDy * sinS;
+
+                Terrain::RayHit hit;
+                if (terrain.castRay(nozzle.wx, nozzle.wy, rayDx, rayDy, IMPULSE_GE_MAX_DIST, hit)) {
+                    // Exponential decay with distance over 2x size reach
+                    float decay = std::exp(-hit.dist / IMPULSE_GE_FALLOFF);
+                    float dvMag = IMPULSE_GE_DV_PER_RAY * decay; // [m/s]
+
+                    // Terrain surface normal repels the ship
+                    impulseGeDeltaVx += dvMag * hit.normalX;
+                    impulseGeDeltaVy += dvMag * hit.normalY;
+
+                    float armX = nozzle.wx - m_x;
+                    float armY = nozzle.wy - m_y;
+                    impulseGeTorque += (armX * dvMag * hit.normalY - armY * dvMag * hit.normalX)
+                                       * GE_TORQUE_SCALE;
+                }
+            }
+        }
+
+        m_vx += impulseGeDeltaVx;
+        m_vy += impulseGeDeltaVy;
+        m_angularVel += impulseGeTorque;
+    }
 
     // Store normalized magnitude for HUD (max theoretical: 2 engines × 7 rays × GE_FORCE_PER_RAY)
     static const float GE_MAX_TOTAL = 2.0f * GE_NUM_RAYS * GE_FORCE_PER_RAY; // [m/s^2]
     float geMag = std::sqrt(geAccelX * geAccelX + geAccelY * geAccelY);       // [m/s^2]
     m_groundEffectMagnitude = std::min(1.0f, geMag / GE_MAX_TOTAL);           // [0.0 - 1.0, dimensionless]
+
+    if (m_impulseBoostActive) {
+        float impGeMag = std::sqrt(impulseGeDeltaVx * impulseGeDeltaVx + impulseGeDeltaVy * impulseGeDeltaVy);
+        if (impGeMag > 0.05f) {
+            m_groundEffectMagnitude = std::max(m_groundEffectMagnitude, std::min(1.0f, impGeMag / (IMPULSE_GE_MAX_TOTAL_DV * 0.35f)));
+        }
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     // Decay RCS puffs

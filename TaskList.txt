@@ -6,7 +6,7 @@
 
 4. Give the lander a boost function we will call "Impulse Thruster". When you press the boost button it will apply an impulse boost via the main thrusters for one frame. This should be enough to stop the lander cold during a medium velocity fall. 
 
-5. Implement ground effect thrusters that automatically fire (and modulate) to keep the vehicle from striking the ground when they are on. Give them a maximum thrust such that it will stop the vehicle from striking the ground only when the vehicle is falling at a somewhat slow speed. When left on, the vehicle should be able to hover and skate across the terrain. 
+5. Implement ground effect hover thrusters that automatically fire (and modulate) to keep the vehicle from striking the ground when they are on. Give them a maximum thrust such that it will stop the vehicle from striking the ground only when the vehicle is falling at a somewhat slow speed. When left on, the vehicle should be able to hover and skate across the terrain. 
 
 6. The lander is really a battle ship. Make it look the part. 
 
