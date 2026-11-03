@@ -1,8 +1,8 @@
-
 Start the lander in the landed position.
-Don't stop the game when I land. Keep it going so we can take off again. 
-Change the thruster animation to not pulse. Instead expel particle debris. If it is not too cumbersome, make the particle debris bounce off of the terrain. 
 
+Don't stop the game when I land. Keep it going so we can take off again. 
+
+Change the thruster animation to not pulse. Instead expel particle debris. If it is not too cumbersome, make the particle debris bounce off of the terrain. 
 
 Give the lander a boost function we will call "Impulse Thruster". When you press the boost button it will apply an impulse boost via the main thrusters for one frame. This should be enough to stop the lander cold during a medium velocity fall. 
 
