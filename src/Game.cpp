@@ -65,6 +65,7 @@ bool Game::init(int width, int height) {
     m_statusMessage = "READY FOR LAUNCH";
     m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
     m_messageTimer = 3.5f; // [s]
+    m_scoredThisTouchdown = true;
 
     return true;
 }
@@ -185,7 +186,7 @@ void Game::handleInput() {
 
     // Restart mission
     if (state.restartPressed) {
-        if (m_lander.getState() == LanderState::CRASHED || m_lander.getState() == LanderState::LANDED) {
+        if (m_lander.getState() == LanderState::CRASHED || (m_lander.getState() == LanderState::LANDED && state.manualRestartPressed)) {
             float nextFuel = (m_lander.getFuel() < 250.0f * LB2KG) ? 750.0f * LB2KG : m_lander.getFuel(); // [kg]
             const auto& pads = m_terrain.getLandingPads();
             if (!pads.empty()) {
@@ -200,6 +201,7 @@ void Game::handleInput() {
             m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
             m_messageTimer = 2.5f; // [s]
             m_sound.playBeep(1000.0f, 0.1f); // [Hz], [s]
+            m_scoredThisTouchdown = true;
         }
     }
 }
@@ -275,7 +277,7 @@ void Game::update(float dt) {
 
     // Check status changes
     if (m_lander.getState() == LanderState::LANDED) {
-        if (m_statusMessage.find("TOUCHDOWN") == std::string::npos) {
+        if (!m_scoredThisTouchdown) {
             int mult = m_lander.getLastPadMultiplier();
             int points = 50 * mult + (int)((m_lander.getFuel() / LB2KG) * 0.25f) * mult;
             m_score += points;
@@ -284,19 +286,24 @@ void Game::update(float dt) {
             std::ostringstream ss;
             ss << "PERFECT TOUCHDOWN! +" << points << " PTS (" << mult << "X PAD)";
             m_statusMessage = ss.str();
-            m_statusSubMessage = "PRESS [A] OR [RT] FOR NEXT FLIGHT";
-            m_messageTimer = 999.0f; // [s]
+            m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF AGAIN";
+            m_messageTimer = 4.0f; // [s]
             m_input.setRumble(0.2f, 0.5f, 250); // [ms]
+            m_scoredThisTouchdown = true;
         }
-    } else if (m_lander.getState() == LanderState::CRASHED) {
+    } else {
+        m_scoredThisTouchdown = false;
+    }
+
+    if (m_lander.getState() == LanderState::CRASHED) {
         if (m_statusMessage.find("CRASHED") == std::string::npos) {
             m_statusMessage = "CRASHED! HULL DESTROYED";
-            m_statusSubMessage = "PRESS [A] OR [RT] TO TRY AGAIN";
+            m_statusSubMessage = "PRESS [A] OR [R] TO TRY AGAIN";
             m_messageTimer = 999.0f; // [s]
         }
     }
 
-    if (m_messageTimer > 0.0f && m_lander.getState() == LanderState::FLYING) {
+    if (m_messageTimer > 0.0f) {
         m_messageTimer -= dt; // [s]
     }
 

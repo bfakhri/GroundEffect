@@ -66,6 +66,7 @@ private:
     std::string m_statusMessage;
     std::string m_statusSubMessage;
     float m_messageTimer = 0.0f; // [s] Message display timer
+    bool m_scoredThisTouchdown = false; // Prevents duplicate scoring while resting on pad
 
     // Warning alert beep timer & rumble hold timer
     float m_warningBeepCooldown = 0.0f;   // [s] Cooldown timer between warning alarm beeps

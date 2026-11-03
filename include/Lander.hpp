@@ -76,10 +76,12 @@ private:
                        const Terrain& terrain, SoundEngine& sound);
     void checkTerrainCollision(const Terrain& terrain, SoundEngine& sound);
     void triggerCrash(SoundEngine& sound);
-    void triggerLanding(int multiplier, SoundEngine& sound);
+    void triggerLanding(int multiplier, float hitY, SoundEngine& sound);
 
     // State
     LanderState m_state = LanderState::FLYING;
+    float m_landedSurfaceY = 0.0f;   // [m] Surface Y datum when landed
+    float m_takeoffCooldown = 0.0f;  // [s] Cooldown timer after takeoff to prevent re-landing immediately
     float m_x = 304.8f;              // [m] Craft horizontal position X (converted from 1000.0 ft)
     float m_y = 121.92f;             // [m] Craft vertical position Y (converted from 400.0 ft)
     float m_vx = 7.62f;              // [m/s] Horizontal velocity Vx (converted from 25.0 ft/s)

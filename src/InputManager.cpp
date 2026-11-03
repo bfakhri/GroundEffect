@@ -245,6 +245,9 @@ void InputManager::update() {
     if ((btnRestart && !m_prevRestartBtn) || (m_keyRestart && !m_prevKeyRestart)) {
         m_state.restartPressed = true;
     }
+    if (m_keyRestart && !m_prevKeyRestart) {
+        m_state.manualRestartPressed = true;
+    }
     if ((btnAddFuel && !m_prevAddFuelBtn) || (m_keyAddFuel && !m_prevKeyAddFuel)) {
         m_state.addFuelPressed = true;
     }

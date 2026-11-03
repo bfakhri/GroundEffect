@@ -117,11 +117,15 @@ void Lander::reset(float startX, float startY, float startFuel) {
     m_rcsPuffLeft = 0.0f;      // [s]
     m_rcsPuffRight = 0.0f;     // [s]
     m_debris.clear();
+    m_takeoffCooldown = 0.0f;
+    m_landedSurfaceY = startY;
 }
 
 void Lander::resetLanded(float startX, float startY, float startFuel) {
     reset(startX, startY, startFuel);
     m_state = LanderState::LANDED;
+    m_landedSurfaceY = startY;
+    m_y = startY;
     m_vx = 0.0f;
     m_vy = 0.0f;
     m_angle = 0.0f;
@@ -180,9 +184,11 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
 
         if (ay < -0.1f) {
             m_state = LanderState::FLYING;
+            m_takeoffCooldown = 0.6f;
             m_vy += ay * dt;
             m_y += m_vy * dt;
         } else {
+            m_y = m_landedSurfaceY;
             m_vx = 0.0f;
             m_vy = 0.0f;
             m_angle = 0.0f;
@@ -190,6 +196,8 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
             return;
         }
     }
+
+    if (m_takeoffCooldown > 0.0f) m_takeoffCooldown -= dt;
 
     // Decay impact timers
     if (m_impactCooldown > 0.0f) m_impactCooldown -= dt;
@@ -422,6 +430,7 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
     bool anyCollision = false;
     bool touchedPad = false;
     int padMultiplier = 0;
+    float padHitY = 0.0f;
 
     // Test footpad lines and lower chassis (including both twin engine nozzles) [m]
     std::vector<std::pair<float, float>> testPoints = {
@@ -444,6 +453,7 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
             if (isPad) {
                 touchedPad = true;
                 padMultiplier = mult;
+                padHitY = hY;
             }
             break;
         }
@@ -451,8 +461,8 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
 
     if (anyCollision) {
         // Evaluate touchdown safety
-        if (touchedPad && isSafeSpeed() && isSafeAngle()) {
-            triggerLanding(padMultiplier, sound);
+        if (touchedPad && isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f) {
+            triggerLanding(padMultiplier, padHitY, sound);
             return;
         }
 
@@ -497,13 +507,15 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
     }
 }
 
-void Lander::triggerLanding(int multiplier, SoundEngine& sound) {
+void Lander::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
     m_state = LanderState::LANDED;
     m_lastPadMultiplier = multiplier;
     m_vx = 0.0f; // [m/s]
     m_vy = 0.0f; // [m/s]
     m_angularVel = 0.0f; // [rad/s]
     m_angle = 0.0f;      // [rad] Level ship
+    m_landedSurfaceY = hitY - 12.0f * FT2M;
+    m_y = m_landedSurfaceY;
     sound.playLandFanfare();
 }
 

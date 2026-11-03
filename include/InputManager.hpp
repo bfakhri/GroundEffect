@@ -10,6 +10,7 @@ struct InputState {
     float rotateAxis = 0.0f;     // [-1.0 to +1.0, dimensionless] Yaw rotation input (-1.0 left to +1.0 right)
     bool abortPressed = false;   // Emergency abort (B button or B key)
     bool restartPressed = false; // Restart game (A button or R key)
+    bool manualRestartPressed = false; // Manual restart (R key specifically)
     bool addFuelPressed = false; // Insert coin / add fuel (X button or C/F key)
     bool nextSitePressed = false;// Switch mission (Y button or N key)
     bool pausePressed = false;   // Pause/resume (Start button or P key)
