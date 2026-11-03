@@ -66,6 +66,15 @@ bool Game::init(int width, int height) {
     m_camera.viewMode = CameraViewMode::CHASE_3D;
     m_camera.camYaw = 0.0f;
     m_camera.camPitch = 0.28f;
+    m_camera.camRoll = 0.0f;
+    m_camera.panOffsetX = 0.0f;
+    m_camera.panOffsetY = 0.0f;
+    m_camera.panOffsetZ = 0.0f;
+    m_camTrackYaw = 0.0f;
+    m_camTrackPitch = 0.28f;
+    m_camTrackRoll = 0.0f;
+    m_camPanYaw = 0.0f;
+    m_camPanPitch = 0.0f;
 
     initStars();
 
@@ -130,22 +139,26 @@ void Game::cycleCameraMode() {
     switch (m_camera.viewMode) {
         case CameraViewMode::CHASE_3D:
             m_camera.use3D = true;
-            m_camera.camYaw = 0.0f;
-            m_camera.camPitch = 0.28f;
-            m_statusMessage = "CAMERA: 3D CHASE PERSPECTIVE";
-            m_statusSubMessage = "DYNAMIC 3D CHASE VIEW  |  [RS / J,L,I,O] ORBIT";
+            m_camPanYaw = 0.0f;
+            m_camPanPitch = 0.0f;
+            m_camera.panOffsetX = 0.0f;
+            m_camera.panOffsetY = 0.0f;
+            m_camera.panOffsetZ = 0.0f;
+            m_statusMessage = "CAMERA: 3D ROCKET-LEAGUE CHASE";
+            m_statusSubMessage = "TRACKS SHIP ROTATION  |  [RIGHT STICK / J,L,I,O] PAN CAMERA";
             break;
         case CameraViewMode::ORBIT_3D:
             m_camera.use3D = true;
-            m_camera.camYaw = 0.22f;
-            m_camera.camPitch = 0.35f;
+            m_camPanYaw = 0.22f;
+            m_camPanPitch = 0.07f;
             m_statusMessage = "CAMERA: 3D FREE ORBIT";
-            m_statusSubMessage = "USE [RIGHT STICK] OR [J/L/I/O] TO ORBIT 360 DEGREES";
+            m_statusSubMessage = "USE [RIGHT STICK] OR [J/L/I/O] TO PAN & ORBIT 360 DEGREES";
             break;
         case CameraViewMode::ISOMETRIC_3D:
             m_camera.use3D = true;
-            m_camera.camYaw = 0.45f;
-            m_camera.camPitch = 0.50f;
+            m_camPanYaw = 0.45f;
+            m_camPanPitch = 0.22f;
+            m_camera.camRoll = 0.0f;
             m_statusMessage = "CAMERA: 3D TACTICAL ISOMETRIC";
             m_statusSubMessage = "HIGH-ANGLE 3D TACTICAL OVERVIEW";
             break;
@@ -153,6 +166,7 @@ void Game::cycleCameraMode() {
             m_camera.use3D = false;
             m_camera.camYaw = 0.0f;
             m_camera.camPitch = 0.0f;
+            m_camera.camRoll = 0.0f;
             m_statusMessage = "CAMERA: CLASSIC 1979 2D ORTHO";
             m_statusSubMessage = "PRESS [TAB] OR [M] TO RETURN TO 3D";
             break;
@@ -437,19 +451,56 @@ void Game::update(float dt) {
     }
     m_camera.zoom += (targetZoom - m_camera.zoom) * (dt * 4.0f);
 
-    // Manual camera orbit adjustments via Right Stick or J/L/I/O keys
+    // Rocket-League-style Ship Rotation Tracking + Right-Stick Camera Panning
     if (m_camera.use3D) {
+        // 1. Secondary joystick (Right Stick / J,L,I,O) pans/swivels the camera without affecting ship attitude
         if (std::abs(state.camYawAxis) > 0.01f || std::abs(state.camPitchAxis) > 0.01f) {
-            m_camera.camYaw += state.camYawAxis * 1.5f * dt;
-            m_camera.camPitch = std::clamp(m_camera.camPitch + state.camPitchAxis * 1.1f * dt, 0.05f, 1.25f);
-        } else if (m_camera.viewMode == CameraViewMode::CHASE_3D) {
-            // Subtle dynamic chase banking with craft horizontal velocity & altitude
-            float desiredYaw = std::clamp(m_battleship.getVx() * 0.004f, -0.18f, 0.18f);
-            float altFactor = std::clamp(altitude / 150.0f, 0.0f, 1.0f);
-            float desiredPitch = 0.22f + 0.14f * altFactor;
-            m_camera.camYaw += (desiredYaw - m_camera.camYaw) * (dt * 2.5f);
-            m_camera.camPitch += (desiredPitch - m_camera.camPitch) * (dt * 2.5f);
+            m_camPanYaw += state.camYawAxis * 1.85f * dt;
+            m_camPanPitch = std::clamp(m_camPanPitch + state.camPitchAxis * 1.35f * dt, -0.85f, 0.95f);
         }
+
+        // Compute lateral/vertical look-at target pan offset in world space from secondary joystick deflection
+        float cosY = std::cos(m_camera.camYaw);
+        float sinY = std::sin(m_camera.camYaw);
+        Vec3 camRight{cosY, 0.0f, -sinY};
+        Vec3 camUp{0.0f, -1.0f, 0.0f};
+        float panRange = 22.0f; // [m] Responsive look-ahead pan distance when deflecting Right Stick
+        Vec3 desiredPanOffset = camRight * (state.camYawAxis * panRange) + camUp * (state.camPitchAxis * panRange);
+        m_camera.panOffsetX += (desiredPanOffset.x - m_camera.panOffsetX) * std::min(1.0f, dt * 8.0f);
+        m_camera.panOffsetY += (desiredPanOffset.y - m_camera.panOffsetY) * std::min(1.0f, dt * 8.0f);
+        m_camera.panOffsetZ += (desiredPanOffset.z - m_camera.panOffsetZ) * std::min(1.0f, dt * 8.0f);
+
+        // 2. Track the 3D rotation of the battleship (Yaw, Pitch, Roll & 3D flight heading)
+        float shipRoll  = m_battleship.getAngle();
+        float shipPitch = m_battleship.getPitch();
+        float shipYaw   = m_battleship.getYaw();
+
+        float velHoriz = std::sqrt(m_battleship.getVx() * m_battleship.getVx() + m_battleship.getVz() * m_battleship.getVz());
+        float velHeading = (velHoriz > 2.5f)
+            ? std::atan2(m_battleship.getVx(), std::max(5.0f, std::abs(m_battleship.getVz()))) * 0.30f
+            : 0.0f;
+
+        float altFactor = std::clamp(altitude / 150.0f, 0.0f, 1.0f);
+        float baseElevationPitch = 0.24f + 0.10f * altFactor;
+
+        float targetTrackYaw   = shipYaw + std::sin(shipRoll) * 0.65f + velHeading;
+        float targetTrackPitch = baseElevationPitch + shipPitch * 0.85f;
+        float targetTrackRoll  = (m_camera.viewMode == CameraViewMode::ISOMETRIC_3D) ? 0.0f : (shipRoll * 0.70f);
+
+        float followStiffness = 7.5f; // Smooth Rocket-League Car-Cam rotational tracking rate
+        m_camTrackYaw   += (targetTrackYaw   - m_camTrackYaw)   * std::min(1.0f, dt * followStiffness);
+        m_camTrackPitch += (targetTrackPitch - m_camTrackPitch) * std::min(1.0f, dt * followStiffness);
+        m_camTrackRoll  += (targetTrackRoll  - m_camTrackRoll)  * std::min(1.0f, dt * followStiffness);
+
+        // Combine tracked ship rotation with secondary-joystick camera pan
+        m_camera.camYaw   = m_camTrackYaw + m_camPanYaw + state.camYawAxis * 0.45f;
+        m_camera.camPitch = std::clamp(m_camTrackPitch + m_camPanPitch + state.camPitchAxis * 0.35f, -0.75f, 1.35f);
+        m_camera.camRoll  = m_camTrackRoll;
+    } else {
+        m_camera.panOffsetX = 0.0f;
+        m_camera.panOffsetY = 0.0f;
+        m_camera.panOffsetZ = 0.0f;
+        m_camera.camRoll = 0.0f;
     }
 
     // 3D Camera Target follows Battleship with smooth lerp

@@ -58,6 +58,10 @@ struct Camera2D {
     CameraViewMode viewMode = CameraViewMode::CHASE_3D;
     float camYaw = 0.0f;     // [rad] Orbit yaw angle in XZ plane (0 = looking from -Z toward +Z)
     float camPitch = 0.30f;  // [rad] Elevation pitch angle above horizon (~17.2 deg looking down)
+    float camRoll = 0.0f;    // [rad] Camera bank/roll angle around view forward axis (tracks ship roll)
+    float panOffsetX = 0.0f; // [m] Camera pan target offset X (controlled by secondary joystick)
+    float panOffsetY = 0.0f; // [m] Camera pan target offset Y (controlled by secondary joystick)
+    float panOffsetZ = 0.0f; // [m] Camera pan target offset Z (controlled by secondary joystick)
     float fovY = 0.92f;      // [rad] Vertical field of view (~52.7 deg)
     float nearPlane = 1.5f;  // [m] Near clipping plane distance
     float farPlane = 2600.0f;// [m] Far reference distance for phosphor depth shading
@@ -77,10 +81,16 @@ struct Camera2D {
         float sinP = std::sin(camPitch);
 
         outForward = { sinY * cosP, sinP, cosY * cosP };
-        outRight   = { cosY, 0.0f, -sinY };
-        outCamDown = { -sinP * sinY, cosP, -sinP * cosY };
+        Vec3 baseRight   = { cosY, 0.0f, -sinY };
+        Vec3 baseCamDown = { -sinP * sinY, cosP, -sinP * cosY };
 
-        Vec3 target{x, y, z};
+        // Apply camera roll around forward axis to track ship bank rotation
+        float cosR = std::cos(camRoll);
+        float sinR = std::sin(camRoll);
+        outRight   = baseRight * cosR + baseCamDown * sinR;
+        outCamDown = baseCamDown * cosR - baseRight * sinR;
+
+        Vec3 target{x + panOffsetX, y + panOffsetY, z + panOffsetZ};
         outCamPos = target - outForward * getDistance();
     }
 

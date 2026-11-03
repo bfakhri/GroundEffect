@@ -624,6 +624,54 @@ bool testHeadlessGameEndToEnd() {
     CHECK(game.getCamera().viewMode == CameraViewMode::CHASE_3D);
     CHECK(game.getCamera().use3D);
 
+    // 6. Test Rocket-League Camera Ship-Rotation Tracking & Independent Camera Panning
+    // A. Rotate ship attitude in Roll, Pitch, and Yaw while flying -> Camera tracks ship rotation
+    game.getBattleship().reset(500.0f, 200.0f, 340.0f, 0.0f);
+    game.getBattleship().setVelocity(0.0f, 0.0f, 0.0f);
+    game.getBattleship().setAngle(0.40f);
+    game.getBattleship().setPitch(0.35f);
+    game.getBattleship().setYaw(0.50f);
+    for (int i = 0; i < 30; ++i) {
+        game.stepFrame(DT);
+    }
+    CHECK(game.getCamera().camYaw > 0.55f);   // Tracked ship yaw + roll bank
+    CHECK(game.getCamera().camPitch > 0.45f); // Tracked ship pitch
+    CHECK(game.getCamera().camRoll > 0.20f);  // Tracked ship roll
+
+    // B. Pan camera with secondary joystick/controls ('l' and 'i') while ship is landed/hovering ->
+    //    Camera pans, but ship attitude remains 100% untouched!
+    const auto& pad0 = game.getTerrain().getLandingPads()[0];
+    game.getBattleship().reset(0.5f * (pad0.x1 + pad0.x2), 200.0f, 340.0f, 0.0f);
+    game.getBattleship().setVelocity(0.0f, 0.0f, 0.0f);
+    game.getBattleship().setAngle(0.0f);
+    game.getBattleship().setPitch(0.0f);
+    game.getBattleship().setYaw(0.0f);
+    for (int i = 0; i < 40; ++i) {
+        game.stepFrame(DT); // Let camera settle back to neutral
+    }
+    float yawBeforePan = game.getCamera().camYaw;
+    float pitchBeforePan = game.getCamera().camPitch;
+
+    pushKeyEvent(SDL_KEYDOWN, SDLK_l); // Pan camera right (camYawAxis = +1)
+    pushKeyEvent(SDL_KEYDOWN, SDLK_i); // Pan camera up    (camPitchAxis = +1)
+    for (int i = 0; i < 20; ++i) {
+        game.stepFrame(DT);
+    }
+    pushKeyEvent(SDL_KEYUP, SDLK_l);
+    pushKeyEvent(SDL_KEYUP, SDLK_i);
+
+    // Camera panned significantly in both yaw, pitch, and target panOffset
+    CHECK(game.getCamera().camYaw > yawBeforePan + 0.40f);
+    CHECK(game.getCamera().camPitch > pitchBeforePan + 0.25f);
+    CHECK(std::abs(game.getCamera().panOffsetX) > 2.0f || std::abs(game.getCamera().panOffsetY) > 2.0f);
+
+    // Ship attitude was completely unaffected by camera panning
+    CHECK_NEAR(game.getBattleship().getAngle(), 0.0f, 1e-5f);
+    CHECK_NEAR(game.getBattleship().getPitch(), 0.0f, 1e-5f);
+    CHECK_NEAR(game.getBattleship().getYaw(), 0.0f, 1e-5f);
+    CHECK_NEAR(game.getBattleship().getAngularVel(), 0.0f, 1e-5f);
+    CHECK_NEAR(game.getBattleship().getPitchVel(), 0.0f, 1e-5f);
+
     game.shutdown();
     return true;
 }

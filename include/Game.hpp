@@ -100,4 +100,11 @@ private:
 
     // Throttle coupling mode: true = both triggers mirror each other (whichever is higher wins)
     bool m_throttleLockMode = false;
+
+    // Rocket-League-style ship rotation tracking & secondary-joystick camera pan state
+    float m_camTrackYaw = 0.0f;   // [rad] Smoothed camera yaw tracking ship rotation
+    float m_camTrackPitch = 0.28f;// [rad] Smoothed camera pitch tracking ship pitch
+    float m_camTrackRoll = 0.0f;  // [rad] Smoothed camera roll tracking ship bank angle
+    float m_camPanYaw = 0.0f;     // [rad] Secondary joystick camera pan yaw offset
+    float m_camPanPitch = 0.0f;   // [rad] Secondary joystick camera pan pitch offset
 };
