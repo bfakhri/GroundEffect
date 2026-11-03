@@ -17,10 +17,16 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
   - **Velocity-Proportional Damage & Rebound System**: Instead of breaking on first contact, rough touchdowns and terrain impacts bounce the battleship off the surface and accrue structural damage proportional to the impact velocity ($v_{impact} \times 0.75\%$). The vehicle only breaks apart when cumulative damage reaches 100%!
   - **Impact Haptic Vibration**: Controller rumbles with intensity and duration scaled directly to impact speed on every collision, accompanied by a procedural metallic crunch sound and visual hull flash.
 
+- **Air Brakes & Ground Effect Hover Thrusters**:
+  - **Air Brakes (`S` / `Down Arrow` to hold, `K` / `RS Click` to toggle)**: Deploys articulated vector spoiler flaps on the port and starboard sponsons, applying linear + quadratic aerodynamic drag opposing velocity $(v_x, v_y)$ and damping rotational spin.
+  - **Ground Effect Hover Thrusters (`H` / `D-Pad Up` to toggle)**: Automatically fires and modulates ventral ground-effect thrusters near the terrain surface to keep the battleship from striking the ground when descending at a slow speed. When left on, the vehicle hovers and smoothly skates across uneven terrain contours!
+
 - **Xbox 360 Controller Support**:
   - **Left Trigger (`LT`) [Analog]**: Proportional 0% to 100% Left Engine Throttle.
   - **Right Trigger (`RT`) [Analog]**: Proportional 0% to 100% Right Engine Throttle.
-  - **Left Stick (`LS`) & D-Pad**: High-precision yaw rotation with deadzone filtering and attitude thruster puffs.
+  - **Left Stick (`LS`) & D-Pad Left/Right**: High-precision yaw rotation with deadzone filtering and attitude thruster puffs.
+  - **D-Pad Up**: Toggle automatic **Ground Effect Hover Thrusters**.
+  - **D-Pad Down / Right Stick Down / `RS` Click**: Hold or toggle **Air Brakes**.
   - **`B` Button (ABORT)**: Emergency abort system! Fires retro rockets vertically, uprights the battleship, and burns fuel to escape an imminent crash.
   - **`X` Button (INSERT COIN / +227 KG FUEL)**: Recreates the original arcade mechanic allowing pilots to pump in more propellant mid-flight (+226.8 kg / +500 lb).
   - **`Y` Button (CHANGE MISSION SITE)**: Cycles through 4 terrain zones (Tranquility Base, Tycho Crater, Ocean of Storms, Hadley Rille).
@@ -61,6 +67,8 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 | **Right Trigger (`RT`)** | **Right Main Thruster** (Continuous analog 0% - 100%, induces counter-clockwise tilt) |
 | **Left Stick (`LS`) X-Axis** | **Attitude Control (RCS)** (Smooth analog yaw steering) |
 | **D-Pad Left / Right** | Digital Rotation Left / Right (Classic arcade feel) |
+| **D-Pad Up** | **TOGGLE HOVER THRUSTERS** (Auto-modulating ground-effect hover & terrain skating) |
+| **D-Pad Down / Right Stick (`RS`)** | **AIR BRAKES** (Hold D-Pad Down / RS Down, or click RS to lock) |
 | **`B` Button** | **EMERGENCY ABORT** (Emergency upright dual-retro burn) |
 | **`X` Button** | **INSERT COIN** (+227 kg Fuel / +500 lb) |
 | **`Y` Button** | **CHANGE MISSION** (Cycle landing terrain site) |
@@ -75,8 +83,12 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 | **Q** | Fire Left Thruster (Induces rightward tilt) |
 | **E** | Fire Right Thruster (Induces leftward tilt) |
 | **Up Arrow / W / Space** | Fire Both Main Thrusters (Balanced vertical thrust) |
+| **Down Arrow / S** | **Hold Air Brakes** (Aerodynamic drag & spin damping) |
+| **K** | **Toggle Air Brakes Lock** |
+| **H** | **Toggle Ground Effect Hover Thrusters** (Auto-hover & terrain skating) |
 | **Left Shift / Right Shift** | **Impulse Thruster Boost** (One-frame retro impulse boost to halt fall cold) |
 | **Left / Right Arrows or A / D** | Attitude Thrusters (RCS Yaw) |
+| **T** | **Toggle Throttle Lock Mode** (Link both engines to either trigger) |
 | **U** | **Toggle Unlimited Fuel** (Testing mode) |
 | **B** | Emergency Abort |
 | **C / F** | Insert Coin / +227 kg Fuel (+500 lb) |
@@ -116,6 +128,20 @@ mkdir -p build && cd build
 cmake ..
 cmake --build .
 ./GroundEffect
+```
+
+### Running the Automated Test & Simulation Suite
+
+```bash
+make test
+```
+
+Or via CMake / CTest:
+```bash
+mkdir -p build && cd build
+cmake ..
+cmake --build .
+ctest --output-on-failure
 ```
 
 ---

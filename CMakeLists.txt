@@ -13,6 +13,8 @@ include_directories(
 )
 
 file(GLOB SOURCES "src/*.cpp")
+set(LIB_SOURCES ${SOURCES})
+list(REMOVE_ITEM LIB_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 
 add_executable(GroundEffect ${SOURCES})
 
@@ -22,3 +24,10 @@ target_link_libraries(GroundEffect
 )
 
 target_compile_options(GroundEffect PRIVATE -O3 -Wall -Wextra)
+
+enable_testing()
+add_executable(GroundEffectTests ${LIB_SOURCES} tests/test_main.cpp)
+target_link_libraries(GroundEffectTests PRIVATE ${SDL2_LIBRARIES})
+target_compile_options(GroundEffectTests PRIVATE -O3 -Wall -Wextra)
+add_test(NAME GroundEffectTests COMMAND GroundEffectTests)
+set_tests_properties(GroundEffectTests PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")

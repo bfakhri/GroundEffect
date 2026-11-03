@@ -36,6 +36,9 @@ bool Game::init(int width, int height) {
     m_renderer = SDL_CreateRenderer(m_window, -1, 
                                     SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!m_renderer) {
+        m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!m_renderer) {
         std::cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
         return false;
     }
@@ -124,14 +127,18 @@ void Game::run() {
 
         if (dt > maxDt) dt = maxDt;
 
-        handleInput();
-
-        if (!m_paused) {
-            update(dt);
-        }
-
-        render();
+        stepFrame(dt);
     }
+}
+
+void Game::stepFrame(float dt) {
+    handleInput();
+
+    if (!m_paused) {
+        update(dt);
+    }
+
+    render();
 }
 
 void Game::handleInput() {
@@ -180,6 +187,26 @@ void Game::handleInput() {
         m_sound.playBeep(m_throttleLockMode ? 1300.0f : 900.0f, 0.07f); // [Hz], [s]
         m_statusMessage = m_throttleLockMode ? "THROTTLE: LOCKED (BOTH ENGINES LINKED)" : "THROTTLE: INDEPENDENT (L/R TRIGGERS)";
         m_statusSubMessage = m_throttleLockMode ? "EITHER TRIGGER NOW CONTROLS BOTH ENGINES" : "LEFT TRIGGER = L.ENG  RIGHT TRIGGER = R.ENG";
+        m_messageTimer = 2.5f; // [s]
+    }
+
+    // Toggle Air Brakes (K key / RS click)
+    if (state.toggleAirBrakesPressed) {
+        m_battleship.toggleAirBrakes();
+        m_sound.playBeep(m_battleship.isAirBrakesToggled() ? 820.0f : 640.0f, 0.07f); // [Hz], [s]
+        m_statusMessage = m_battleship.isAirBrakesToggled() ? "AIR BRAKES: LOCKED ON" : "AIR BRAKES: RETRACTED";
+        m_statusSubMessage = "HOLD [S/DOWN] OR PRESS [K] TO DEPLOY AIR BRAKES";
+        m_messageTimer = 2.2f; // [s]
+    }
+
+    // Toggle Ground Effect Hover Thrusters (H key / D-Pad Up)
+    if (state.toggleHoverPressed) {
+        m_battleship.toggleHoverThrusters();
+        m_sound.playBeep(m_battleship.isHoverThrustersEnabled() ? 1250.0f : 700.0f, 0.08f); // [Hz], [s]
+        m_statusMessage = m_battleship.isHoverThrustersEnabled() ? "GROUND EFFECT HOVER: ON" : "GROUND EFFECT HOVER: OFF";
+        m_statusSubMessage = m_battleship.isHoverThrustersEnabled()
+            ? "AUTO-MODULATING THRUST TO HOVER & SKATE ACROSS TERRAIN"
+            : "PRESS [H] OR [DPAD UP] TO ENABLE HOVER THRUSTERS";
         m_messageTimer = 2.5f; // [s]
     }
 
@@ -239,8 +266,8 @@ void Game::update(float dt) {
         tRight = linked;
     }
 
-    // Update Battleship with twin thruster inputs
-    m_battleship.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed, m_terrain, m_sound);
+    // Update Battleship with twin thruster and air brake inputs
+    m_battleship.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed, m_terrain, m_sound, state.airBrakeHeld);
 
     // If Impulse Thruster fired, give powerful rumble and visual telemetry notification
     if (m_battleship.wasImpulseFired()) {
@@ -578,6 +605,22 @@ void Game::renderTelemetry() {
                                            geTextCol, m_crtGlow * 0.75f);
         }
     }
+
+    // 9. GROUND EFFECT HOVER THRUSTERS & AIR BRAKES TELEMETRY
+    bool hoverOn = m_battleship.isHoverThrustersEnabled();
+    float hoverPct = m_battleship.getHoverThrusterThrottle() * 100.0f;
+    SDL_Color hoverCol = hoverOn ? SDL_Color{80, 235, 255, 255} : SDL_Color{110, 150, 130, 255};
+    std::ostringstream ssHover;
+    ssHover << "HOVER [H]: " << (hoverOn ? "ON (" : "OFF");
+    if (hoverOn) {
+        ssHover << std::setw(3) << (int)std::round(hoverPct) << "%)";
+    }
+    VectorFont::drawText(m_renderer, ssHover.str(), baseX, baseY + 215.0f, 1.6f, hoverCol, m_crtGlow);
+
+    bool brakeOn = m_battleship.isAirBrakesActive();
+    SDL_Color brakeCol = brakeOn ? SDL_Color{255, 195, 70, 255} : SDL_Color{110, 150, 130, 255};
+    std::string brakeStr = brakeOn ? "BRAKE [S/K]: DEPLOYED" : "BRAKE [S/K]: OFF";
+    VectorFont::drawText(m_renderer, brakeStr, baseX, baseY + 235.0f, 1.6f, brakeCol, m_crtGlow);
 }
 
 
@@ -627,7 +670,7 @@ void Game::renderControllerGuide() {
 
     // Control Mapping Banner
     std::string controls = m_throttleLockMode
-        ? "[LT/RT] LINKED THRUST  [LS] ROTATE  [A/SHIFT] IMPULSE BOOST  [B] ABORT  [U] FUEL"
-        : "[LT] L.THRUST  [RT] R.THRUST  [LS] ROTATE  [A/SHIFT] IMPULSE BOOST  [B] ABORT  [U] FUEL";
+        ? "[LT/RT] LINKED  [LS] ROT  [H] HOVER  [S/K] BRAKE  [A/SHIFT] BOOST  [B] ABORT"
+        : "[LT] L.THR  [RT] R.THR  [LS] ROT  [H] HOVER  [S/K] BRAKE  [A/SHIFT] BOOST  [B] ABORT";
     VectorFont::drawText(m_renderer, controls, 25.0f, baseY, scale, guideColor, m_crtGlow);
 }

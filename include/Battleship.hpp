@@ -43,7 +43,7 @@ public:
     void reset(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg] (converted from 750.0 lb)
     void resetLanded(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg]
     void update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
-                const Terrain& terrain, SoundEngine& sound); // dt [s], throttle in [0.0 - 1.0], rotateInput in [-1.0 to +1.0]
+                const Terrain& terrain, SoundEngine& sound, bool airBrakeHeld = false); // dt [s], throttle in [0.0 - 1.0], rotateInput in [-1.0 to +1.0]
 
     void render(SDL_Renderer* renderer, const Camera2D& cam, float glow = 1.0f);
 
@@ -54,6 +54,10 @@ public:
     float getVy() const { return m_vy; }                 // [m/s] Craft vertical velocity Vy
     float getAngle() const { return m_angle; }           // [rad] Pitch angle (0 rad is pointing straight up)
     float getAngularVel() const { return m_angularVel; } // [rad/s] Angular velocity
+    void setPosition(float x, float y) { m_x = x; m_y = y; }
+    void setVelocity(float vx, float vy) { m_vx = vx; m_vy = vy; }
+    void setAngle(float angle) { m_angle = angle; }
+    void setAngularVel(float angularVel) { m_angularVel = angularVel; }
     float getFuel() const { return m_fuel; }             // [kg] Propellant mass remaining
     void addFuel(float amount) { m_fuel += amount; }     // amount in [kg]
     bool isUnlimitedFuel() const { return m_unlimitedFuel; }
@@ -62,6 +66,32 @@ public:
     float getDamage() const { return m_damage; }         // [%] Structural damage accrued (0.0% to 100.0%)
     float getHull() const { return std::max(0.0f, 100.0f - m_damage); } // [%] Structural integrity remaining
     bool wasImpulseFired() const { return m_impulseBoostActive; }
+    bool isAbortActive() const { return m_abortActive; }
+
+    // Air Brakes
+    bool isAirBrakesActive() const { return m_airBrakesActive; }
+    bool isAirBrakesToggled() const { return m_airBrakesToggled; }
+    void setAirBrakes(bool enabled) {
+        m_airBrakesToggled = enabled;
+        m_airBrakesActive = enabled;
+        if (enabled) m_airBrakeDeploy = 1.0f;
+    }
+    void toggleAirBrakes() { setAirBrakes(!m_airBrakesToggled); }
+    float getAirBrakeDeploy() const { return m_airBrakeDeploy; }
+    float getAirBrakeDragMagnitude() const { return m_airBrakeDragMagnitude; }
+
+    // Ground Effect Hover Thrusters
+    bool isHoverThrustersEnabled() const { return m_hoverThrustersEnabled; }
+    void setHoverThrustersEnabled(bool enabled) {
+        m_hoverThrustersEnabled = enabled;
+        if (!enabled) m_hoverThrusterThrottle = 0.0f;
+    }
+    void toggleHoverThrusters() { setHoverThrustersEnabled(!m_hoverThrustersEnabled); }
+    float getHoverThrusterThrottle() const { return m_hoverThrusterThrottle; }
+
+    const std::vector<ThrusterParticle>& getParticles() const { return m_particles; }
+    const std::vector<DebrisLine>& getDebris() const { return m_debris; }
+
     ImpactEvent getAndClearImpactEvent() {
         ImpactEvent ev = m_lastImpact;
         m_lastImpact.occurred = false;
@@ -78,6 +108,9 @@ public:
     static constexpr float SAFE_MAX_VY = 6.096f;      // [m/s] Maximum safe vertical touchdown speed (converted from 20.0 ft/s)
     static constexpr float SAFE_MAX_VX = 4.2672f;     // [m/s] Maximum safe horizontal touchdown speed (converted from 14.0 ft/s)
     static constexpr float SAFE_MAX_ANGLE_DEG = 7.0f; // [deg] Maximum safe attitude tilt angle (0.12217 rad)
+    static constexpr float HOVER_TARGET_ALT = 9.7536f;// [m] Target ground-effect hover clearance (32.0 ft)
+    static constexpr float HOVER_MAX_ALT = 22.86f;    // [m] Max ground-effect hover engagement altitude (75.0 ft)
+    static constexpr float HOVER_MAX_ACCEL = 14.0208f;// [m/s^2] Max upward acceleration of hover thrusters (46.0 ft/s^2)
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;
@@ -85,10 +118,12 @@ public:
 private:
     void updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                        const Terrain& terrain, SoundEngine& sound);
+    void updateHoverThrusters(float dt, float rotateInput, float diffThrust, const Terrain& terrain, SoundEngine& sound);
     void checkTerrainCollision(const Terrain& terrain, SoundEngine& sound);
     void triggerCrash(SoundEngine& sound);
     void triggerLanding(int multiplier, float hitY, SoundEngine& sound);
     void spawnThrusterParticles(float dt);
+    void spawnHoverParticles(float dt);
     void spawnImpulseParticles();
     void updateThrusterParticles(float dt, const Terrain& terrain);
 
@@ -110,6 +145,16 @@ private:
     float m_throttleRight = 0.0f;    // [0.0 - 1.0, dimensionless] Right engine throttle fraction
     bool m_abortActive = false;
     float m_abortTimer = 0.0f;       // [s] Abort burn timer
+
+    // Air Brakes state
+    bool m_airBrakesToggled = false; // [flag] Persistent air brake toggle state
+    bool m_airBrakesActive = false;  // [flag] Effective air brake state (toggled or held)
+    float m_airBrakeDeploy = 0.0f;   // [0.0 - 1.0] Air brake flap deployment fraction
+    float m_airBrakeDragMagnitude = 0.0f; // [0.0 - 1.0] Normalized drag force magnitude
+
+    // Ground Effect Hover Thrusters state
+    bool m_hoverThrustersEnabled = false;  // [flag] Automatic ground-effect hover thrusters enabled
+    float m_hoverThrusterThrottle = 0.0f;  // [0.0 - 1.0] Modulated hover thruster output fraction
 
     // Ground effect plume impingement
     float m_groundEffectMagnitude = 0.0f; // [0.0 - 1.0, dimensionless] Normalized GE force magnitude (last frame)

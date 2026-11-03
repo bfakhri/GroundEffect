@@ -76,6 +76,8 @@ void InputManager::update() {
     m_state.toggleGlowPressed = false;
     m_state.toggleUnlimitedFuelPressed = false;
     m_state.toggleThrottleLockPressed = false;
+    m_state.toggleAirBrakesPressed = false;
+    m_state.toggleHoverPressed = false;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -113,6 +115,8 @@ void InputManager::update() {
                         case SDLK_e:      m_keyE = true; break;
                         case SDLK_u:      m_keyU = true; break;
                         case SDLK_t:      m_keyT = true; break;
+                        case SDLK_k:      m_keyK = true; break;
+                        case SDLK_h:      m_keyH = true; break;
                         case SDLK_b:      m_keyAbort = true; break;
                         case SDLK_r:      m_keyRestart = true; break;
                         case SDLK_c:
@@ -141,6 +145,8 @@ void InputManager::update() {
                     case SDLK_e:      m_keyE = false; break;
                     case SDLK_u:      m_keyU = false; break;
                     case SDLK_t:      m_keyT = false; break;
+                    case SDLK_k:      m_keyK = false; break;
+                    case SDLK_h:      m_keyH = false; break;
                     case SDLK_b:      m_keyAbort = false; break;
                     case SDLK_r:      m_keyRestart = false; break;
                     case SDLK_c:
@@ -167,6 +173,9 @@ void InputManager::update() {
     bool btnPause = false;
     bool btnGlow = false;
     bool btnThrottleLock = false;
+    bool btnAirBrakeHeld = false;
+    bool btnAirBrakeToggle = false;
+    bool btnHoverToggle = false;
 
     if (m_controller) {
         // Left Trigger: Left Thruster proportional throttle (0 to 32767)
@@ -206,6 +215,17 @@ void InputManager::update() {
                    SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
             ctrlRotate = 1.0f;
         }
+
+        // Air brake hold: D-Pad Down or pulling Right Stick Y downward
+        Sint16 ryValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTY);
+        btnAirBrakeHeld = (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0) ||
+                          (ryValue > STICK_DEADZONE * 2);
+
+        // Air brake lock toggle: Right Stick Click
+        btnAirBrakeToggle = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK) != 0;
+
+        // Ground effect hover thrusters toggle: D-Pad Up
+        btnHoverToggle = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_UP) != 0;
 
         // Face Buttons:
         // 'B' = ABORT
@@ -247,6 +267,7 @@ void InputManager::update() {
     m_state.throttleRight = std::clamp(std::max(ctrlThrottleRight, kbThrottleRight), 0.0f, 1.0f);
     m_state.throttle = (m_state.throttleLeft + m_state.throttleRight) * 0.5f;
     m_state.rotateAxis = std::clamp(ctrlRotate + kbRotate, -1.0f, 1.0f);
+    m_state.airBrakeHeld = m_keyDown || btnAirBrakeHeld;
 
     // Edge triggers (press on rising edge)
     if ((btnBoost && !m_prevBoostBtn) || (m_keyShift && !m_prevKeyShift)) {
@@ -279,6 +300,12 @@ void InputManager::update() {
     if ((btnThrottleLock && !m_prevThrottleLockBtn) || (m_keyT && !m_prevKeyT)) {
         m_state.toggleThrottleLockPressed = true;
     }
+    if ((btnAirBrakeToggle && !m_prevAirBrakeToggleBtn) || (m_keyK && !m_prevKeyK)) {
+        m_state.toggleAirBrakesPressed = true;
+    }
+    if ((btnHoverToggle && !m_prevHoverBtn) || (m_keyH && !m_prevKeyH)) {
+        m_state.toggleHoverPressed = true;
+    }
 
     m_prevAbortBtn = btnAbort;
     m_prevBoostBtn = btnBoost;
@@ -288,9 +315,13 @@ void InputManager::update() {
     m_prevPauseBtn = btnPause;
     m_prevGlowBtn = btnGlow;
     m_prevThrottleLockBtn = btnThrottleLock;
+    m_prevAirBrakeToggleBtn = btnAirBrakeToggle;
+    m_prevHoverBtn = btnHoverToggle;
 
     m_prevKeyU = m_keyU;
     m_prevKeyT = m_keyT;
+    m_prevKeyK = m_keyK;
+    m_prevKeyH = m_keyH;
     m_prevKeyAbort = m_keyAbort;
     m_prevKeyRestart = m_keyRestart;
     m_prevKeyAddFuel = m_keyAddFuel;

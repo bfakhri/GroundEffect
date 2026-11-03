@@ -1,7 +1,9 @@
 # Build artifacts
 GroundEffect
+GroundEffectTests
 *.o
 src/*.o
+tests/*.o
 
 # Build directories
 build/

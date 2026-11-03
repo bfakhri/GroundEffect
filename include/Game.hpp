@@ -23,7 +23,27 @@ public:
 
     bool init(int width = 1280, int height = 720); // width [px], height [px]
     void run();
+    void stepFrame(float dt); // dt in [s] - single-frame step for deterministic testing
     void shutdown();
+
+    // Inspection & Test Accessors
+    Battleship& getBattleship() { return m_battleship; }
+    const Battleship& getBattleship() const { return m_battleship; }
+    Terrain& getTerrain() { return m_terrain; }
+    const Terrain& getTerrain() const { return m_terrain; }
+    const Camera2D& getCamera() const { return m_camera; }
+    InputManager& getInput() { return m_input; }
+    SDL_Renderer* getRenderer() const { return m_renderer; }
+    int getScore() const { return m_score; }
+    int getHighScore() const { return m_highScore; }
+    float getGameTime() const { return m_gameTime; }
+    int getCoinsInserted() const { return m_coinsInserted; }
+    bool isPaused() const { return m_paused; }
+    bool isRunning() const { return m_running; }
+    bool isThrottleLockMode() const { return m_throttleLockMode; }
+    float getCrashVibrationTimer() const { return m_crashVibrationTimer; }
+    const std::string& getStatusMessage() const { return m_statusMessage; }
+    const std::string& getStatusSubMessage() const { return m_statusSubMessage; }
 
 private:
     void handleInput();

@@ -18,7 +18,10 @@ struct InputState {
     bool toggleGlowPressed = false; // Toggle CRT glow (Back button or G key)
     bool toggleUnlimitedFuelPressed = false; // Toggle unlimited fuel (U key)
     bool toggleThrottleLockPressed = false;  // Toggle independent/locked throttle mode (T key / LS click)
-    bool quitRequested = false;  // Quit game (ESC or window close)
+    bool airBrakeHeld = false;               // Momentary air brake hold (Down/S key or D-Pad Down)
+    bool toggleAirBrakesPressed = false;     // Toggle air brakes lock (K key or RS click)
+    bool toggleHoverPressed = false;         // Toggle ground effect hover thrusters (H key or D-Pad Up)
+    bool quitRequested = false;              // Quit game (ESC or window close)
 };
 
 class InputManager {
@@ -31,6 +34,7 @@ public:
     void update();
 
     const InputState& getState() const { return m_state; }
+    void setStateForTesting(const InputState& state) { m_state = state; }
     bool isControllerConnected() const { return m_controller != nullptr; }
     std::string getControllerName() const;
 
@@ -54,6 +58,8 @@ private:
     bool m_prevPauseBtn = false;
     bool m_prevGlowBtn = false;
     bool m_prevThrottleLockBtn = false;
+    bool m_prevAirBrakeToggleBtn = false;
+    bool m_prevHoverBtn = false;
 
     // Keyboard states
     bool m_keyUp = false;
@@ -65,6 +71,8 @@ private:
     bool m_keyE = false;
     bool m_keyU = false;
     bool m_keyT = false;
+    bool m_keyK = false;
+    bool m_keyH = false;
     bool m_keyAbort = false;
     bool m_keyRestart = false;
     bool m_keyAddFuel = false;
@@ -75,6 +83,8 @@ private:
 
     bool m_prevKeyU = false;
     bool m_prevKeyT = false;
+    bool m_prevKeyK = false;
+    bool m_prevKeyH = false;
     bool m_prevKeyAbort = false;
     bool m_prevKeyRestart = false;
     bool m_prevKeyAddFuel = false;

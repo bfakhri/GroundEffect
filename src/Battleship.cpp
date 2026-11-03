@@ -153,6 +153,13 @@ void Battleship::reset(float startX, float startY, float startFuel) {
     m_takeoffCooldown = 0.0f;
     m_landedSurfaceY = startY;
     m_impulseBoostActive = false;
+    m_airBrakesToggled = false;
+    m_airBrakesActive = false;
+    m_airBrakeDeploy = 0.0f;
+    m_airBrakeDragMagnitude = 0.0f;
+    m_hoverThrustersEnabled = false;
+    m_hoverThrusterThrottle = 0.0f;
+    m_groundEffectMagnitude = 0.0f;
 }
 
 void Battleship::resetLanded(float startX, float startY, float startFuel) {
@@ -176,8 +183,14 @@ bool Battleship::isSafeAngle() const {
 }
 
 void Battleship::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
-                    const Terrain& terrain, SoundEngine& sound) {
+                    const Terrain& terrain, SoundEngine& sound, bool airBrakeHeld) {
     m_impulseBoostActive = false;
+    m_airBrakesActive = m_airBrakesToggled || airBrakeHeld;
+    if (m_airBrakesActive) {
+        m_airBrakeDeploy = std::min(1.0f, m_airBrakeDeploy + 12.0f * dt);
+    } else {
+        m_airBrakeDeploy = std::max(0.0f, m_airBrakeDeploy - 12.0f * dt);
+    }
 
     if (m_state == BattleshipState::CRASHED) {
         // Update debris motion
@@ -215,44 +228,50 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
             return;
         }
 
-        // While landed, check if pilot applies sufficient upward thrust to take off
-        float rawThrottleLeft = throttleLeft;
-        float rawThrottleRight = throttleRight;
-        if (!m_unlimitedFuel && m_fuel <= 0.0f) {
-            rawThrottleLeft = 0.0f;
-            rawThrottleRight = 0.0f;
-        }
-        float appliedThrottleLeft = applyThrustCurve(rawThrottleLeft);
-        float appliedThrottleRight = applyThrustCurve(rawThrottleRight);
-        float totalThrottle = appliedThrottleLeft + appliedThrottleRight;
-
-        m_throttleLeft = appliedThrottleLeft;
-        m_throttleRight = appliedThrottleRight;
-        sound.setThrust(std::clamp(totalThrottle * 0.6f, 0.0f, 1.0f));
-
-        if (!m_unlimitedFuel && totalThrottle > 0.0f && m_fuel > 0.0f) {
-            float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt;
-            m_fuel = std::max(0.0f, m_fuel - fuelUsed);
-        }
-
-        spawnThrusterParticles(dt);
-        updateThrusterParticles(dt, terrain);
-
-        float totalThrustAccel = totalThrottle * THRUST_PER_ENGINE;
-        float ay = -totalThrustAccel + GRAVITY;
-
-        if (ay < -0.1f) {
+        // If Ground Effect Hover Thrusters are turned ON while landed, automatically lift off into hover
+        if (m_hoverThrustersEnabled && (m_unlimitedFuel || m_fuel > 0.0f)) {
             m_state = BattleshipState::FLYING;
             m_takeoffCooldown = 0.6f;
-            m_vy += ay * dt;
-            m_y += m_vy * dt;
         } else {
-            m_y = m_landedSurfaceY;
-            m_vx = 0.0f;
-            m_vy = 0.0f;
-            m_angle = 0.0f;
-            m_angularVel = 0.0f;
-            return;
+            // While landed, check if pilot applies sufficient upward thrust to take off
+            float rawThrottleLeft = throttleLeft;
+            float rawThrottleRight = throttleRight;
+            if (!m_unlimitedFuel && m_fuel <= 0.0f) {
+                rawThrottleLeft = 0.0f;
+                rawThrottleRight = 0.0f;
+            }
+            float appliedThrottleLeft = applyThrustCurve(rawThrottleLeft);
+            float appliedThrottleRight = applyThrustCurve(rawThrottleRight);
+            float totalThrottle = appliedThrottleLeft + appliedThrottleRight;
+
+            m_throttleLeft = appliedThrottleLeft;
+            m_throttleRight = appliedThrottleRight;
+            sound.setThrust(std::clamp(totalThrottle * 0.6f, 0.0f, 1.0f));
+
+            if (!m_unlimitedFuel && totalThrottle > 0.0f && m_fuel > 0.0f) {
+                float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt;
+                m_fuel = std::max(0.0f, m_fuel - fuelUsed);
+            }
+
+            spawnThrusterParticles(dt);
+            updateThrusterParticles(dt, terrain);
+
+            float totalThrustAccel = totalThrottle * THRUST_PER_ENGINE;
+            float ay = -totalThrustAccel + GRAVITY;
+
+            if (ay < -0.1f) {
+                m_state = BattleshipState::FLYING;
+                m_takeoffCooldown = 0.6f;
+                m_vy += ay * dt;
+                m_y += m_vy * dt;
+            } else {
+                m_y = m_landedSurfaceY;
+                m_vx = 0.0f;
+                m_vy = 0.0f;
+                m_angle = 0.0f;
+                m_angularVel = 0.0f;
+                return;
+            }
         }
     }
 
@@ -265,8 +284,9 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
     // Flying physics
     updatePhysics(dt, throttleLeft, throttleRight, rotateInput, abortTriggered, boostTriggered, terrain, sound);
 
-    // Thruster particle debris animation and bounce physics
+    // Thruster & hover particle debris animation and bounce physics
     spawnThrusterParticles(dt);
+    spawnHoverParticles(dt);
     updateThrusterParticles(dt, terrain);
 
     // Collision check against terrain
@@ -396,6 +416,26 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
     m_vx += ax * dt; // [m/s]
     m_vy += ay * dt; // [m/s]
+
+    // ── Air Brakes: Aerodynamic Drag & Rotational Stabilization ──────────────
+    if (m_airBrakesActive) {
+        static const float AIR_BRAKE_LINEAR_DRAG = 1.85f;  // [1/s] Linear aerodynamic damping rate
+        static const float AIR_BRAKE_QUAD_DRAG   = 0.045f; // [1/m] Quadratic high-speed aerodynamic drag
+        static const float AIR_BRAKE_ANG_DRAG    = 4.0f;   // [1/s] Rotational air-brake damping rate
+
+        float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy); // [m/s]
+        float dragRate = AIR_BRAKE_LINEAR_DRAG + AIR_BRAKE_QUAD_DRAG * speed; // [1/s]
+        float atten = 1.0f / (1.0f + dragRate * dt);
+        m_vx *= atten;
+        m_vy *= atten;
+        m_angularVel *= 1.0f / (1.0f + AIR_BRAKE_ANG_DRAG * dt);
+        m_airBrakeDragMagnitude = std::clamp((speed * dragRate) / (50.0f * FT2M), 0.0f, 1.0f);
+    } else {
+        m_airBrakeDragMagnitude = 0.0f;
+    }
+
+    // ── Automatic Ground Effect Hover Thrusters ──────────────────────────────
+    updateHoverThrusters(dt, appliedRotate, diffThrust, terrain, sound);
 
     m_x += m_vx * dt; // [m]
     m_y += m_vy * dt; // [m]
@@ -537,6 +577,12 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             m_groundEffectMagnitude = std::max(m_groundEffectMagnitude, std::min(1.0f, impGeMag / (IMPULSE_GE_MAX_TOTAL_DV * 0.35f)));
         }
     }
+
+    if (m_hoverThrustersEnabled && m_hoverThrusterThrottle > 0.01f) {
+        m_groundEffectMagnitude = std::max(m_groundEffectMagnitude, m_hoverThrusterThrottle);
+        float totalThrottle = m_throttleLeft + m_throttleRight;
+        sound.setThrust(std::clamp(std::max(totalThrottle * 0.6f, m_hoverThrusterThrottle * 0.35f), 0.0f, 1.0f));
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     // Decay RCS puffs
@@ -545,6 +591,81 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
     // Flame flicker animation
     m_flameFlicker += dt * 30.0f; // [rad]
+}
+
+void Battleship::updateHoverThrusters(float dt, float rotateInput, float diffThrust,
+                                      const Terrain& terrain, SoundEngine& /*sound*/) {
+    if (!m_hoverThrustersEnabled || (!m_unlimitedFuel && m_fuel <= 0.0f)) {
+        m_hoverThrusterThrottle = 0.0f;
+        return;
+    }
+
+    // Sample terrain surface beneath center, port/starboard skids, and velocity lookahead points
+    const float lookTimes[4] = { 0.30f, 0.65f, 1.10f, 1.55f };
+    float minSurfY = terrain.getSurfaceHeightAt(m_x);
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 22.0f * FT2M));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 22.0f * FT2M));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 11.0f * FT2M));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 11.0f * FT2M));
+
+    for (float tLook : lookTimes) {
+        float lookDx = std::clamp(m_vx * tLook, -110.0f * FT2M, 110.0f * FT2M);
+        minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + lookDx));
+    }
+
+    // Effective vertical clearance from lowest skid datum (m_y + 12 ft) to highest local/upcoming terrain
+    float clearance = minSurfY - (m_y + 12.0f * FT2M); // [m]
+
+    // Local & forward terrain slope for contour-following velocity tracking while skating horizontally
+    float surfLeft  = terrain.getSurfaceHeightAt(m_x - 15.0f * FT2M);
+    float surfRight = terrain.getSurfaceHeightAt(m_x + 15.0f * FT2M);
+    float localSlope = (surfRight - surfLeft) / (30.0f * FT2M);
+
+    // Also measure forward slope in direction of horizontal velocity
+    float forwardDx = (m_vx >= 0.0f) ? 35.0f * FT2M : -35.0f * FT2M;
+    float forwardSlope = (terrain.getSurfaceHeightAt(m_x + forwardDx) - terrain.getSurfaceHeightAt(m_x)) / forwardDx;
+
+    // Use whichever slope demands more upward climb rate (more negative terrainVy)
+    float terrainVyLocal = localSlope * m_vx;
+    float terrainVyForward = forwardSlope * m_vx;
+    float terrainVy = std::min(terrainVyLocal, terrainVyForward); // [m/s] (<0 when skating uphill)
+    float relVy = m_vy - terrainVy; // [m/s] Approach velocity toward terrain contour (>0 is approaching terrain)
+
+    if (clearance < HOVER_MAX_ALT) {
+        float altError = HOVER_TARGET_ALT - clearance; // [m] (>0 when below target hover altitude)
+
+        // Critically-damped PD + gravity feedforward modulation law
+        float desiredUpAccel = GRAVITY + 2.6f * altError + 3.6f * relVy; // [m/s^2]
+
+        // Kinematic braking check when approaching terrain inside the ground-effect envelope:
+        // Net maximum deceleration against gravity is (HOVER_MAX_ACCEL - GRAVITY) = 5.4864 m/s^2.
+        if (relVy > 0.5f && clearance > HOVER_TARGET_ALT) {
+            float netMaxDecel = HOVER_MAX_ACCEL - GRAVITY;
+            float stopDist = (relVy * relVy) / (2.0f * netMaxDecel); // [m]
+            if (clearance - HOVER_TARGET_ALT <= stopDist * 1.20f + 2.0f) {
+                desiredUpAccel = std::max(desiredUpAccel, HOVER_MAX_ACCEL);
+            }
+        }
+
+        m_hoverThrusterThrottle = std::clamp(desiredUpAccel / HOVER_MAX_ACCEL, 0.0f, 1.0f);
+        float hoverUpAccel = m_hoverThrusterThrottle * HOVER_MAX_ACCEL; // [m/s^2]
+        m_vy -= hoverUpAccel * dt;
+
+        // Ground-cushion attitude stabilization so the battleship stays upright while skating
+        if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
+            float stabTorque = (-3.2f * m_angle - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
+            m_angularVel += stabTorque * dt;
+            m_angularVel = std::clamp(m_angularVel, -MAX_ANGULAR_VEL, MAX_ANGULAR_VEL);
+        }
+
+        // Consume hover propellant when unlimited fuel is off
+        if (!m_unlimitedFuel && m_hoverThrusterThrottle > 0.0f) {
+            float hoverFuel = (m_hoverThrusterThrottle * 0.35f) * FUEL_BURN_RATE * dt;
+            m_fuel = std::max(0.0f, m_fuel - hoverFuel);
+        }
+    } else {
+        m_hoverThrusterThrottle = 0.0f;
+    }
 }
 
 void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
@@ -601,8 +722,8 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
     }
 
     if (anyCollision) {
-        // Evaluate touchdown safety
-        if (touchedPad && isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f) {
+        // Evaluate touchdown safety (only lock into LANDED state if hover thrusters are OFF)
+        if (!m_hoverThrustersEnabled && touchedPad && isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f) {
             triggerLanding(padMultiplier, padHitY, sound);
             return;
         }
@@ -728,6 +849,54 @@ void Battleship::spawnThrusterParticles(float dt) {
 
     emitFromNozzle(-5.5f * FT2M, m_throttleLeft);
     emitFromNozzle( 5.5f * FT2M, m_throttleRight);
+}
+
+void Battleship::spawnHoverParticles(float dt) {
+    if (m_state == BattleshipState::CRASHED) return;
+    if (!m_hoverThrustersEnabled || m_hoverThrusterThrottle < 0.03f) return;
+    if (!m_unlimitedFuel && m_fuel <= 0.0f) return;
+
+    auto emitFromVentralHoverJet = [&](float jetLocalX, float modThrottle) {
+        float spawnRate = 110.0f * modThrottle; // [particles/s]
+        int numParticles = (int)(spawnRate * dt);
+        if (((float)std::rand() / (float)RAND_MAX) < (spawnRate * dt - numParticles)) {
+            numParticles++;
+        }
+
+        float cosA = std::cos(m_angle);
+        float sinA = std::sin(m_angle);
+        float jetWx = m_x + (jetLocalX * cosA - (10.5f * FT2M) * sinA);
+        float jetWy = m_y + (jetLocalX * sinA + (10.5f * FT2M) * cosA);
+
+        for (int i = 0; i < numParticles; ++i) {
+            if (m_particles.size() >= 1200) break;
+            ThrusterParticle p;
+            float spreadX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 3.0f * FT2M;
+            p.x = jetWx + spreadX;
+            p.y = jetWy;
+
+            float speed = (80.0f + 160.0f * modThrottle) * FT2M;
+            float cone = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
+            p.vx = m_vx * 0.3f + std::sin(cone) * speed;
+            p.vy = m_vy * 0.2f + std::cos(cone) * speed;
+            p.maxLife = 0.22f + 0.14f * modThrottle;
+            p.life = p.maxLife;
+            p.bounceCount = 0;
+
+            int cRand = std::rand() % 3;
+            if (cRand == 0) {
+                p.color = {200, 250, 255, 255}; // Bright electric cyan-white
+            } else if (cRand == 1) {
+                p.color = {80, 220, 255, 255};  // Ground-effect hover cyan
+            } else {
+                p.color = {60, 175, 245, 255};  // Deep plasma blue
+            }
+            m_particles.push_back(p);
+        }
+    };
+
+    emitFromVentralHoverJet(-14.5f * FT2M, m_hoverThrusterThrottle);
+    emitFromVentralHoverJet( 14.5f * FT2M, m_hoverThrusterThrottle);
 }
 
 void Battleship::spawnImpulseParticles() {
@@ -1016,5 +1185,48 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         float px2 = m_x + (22.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
         float py2 = m_y + (22.0f * FT2M * sinA + (-5.0f * FT2M) * cosA); // [m]
         VectorRenderer::drawLineWorld(renderer, cam, px1, py1, px2, py2, rcsColor, glow * 1.5f, 2);
+    }
+
+    // 5. Draw Deployed Air Brake Flaps & Drag Wake Chevrons
+    if (m_airBrakeDeploy > 0.02f && m_state != BattleshipState::CRASHED) {
+        SDL_Color brakeColor = {255, 195, 70, 255};
+        float d = m_airBrakeDeploy;
+        auto drawLocalSegment = [&](float lx1, float ly1, float lx2, float ly2, SDL_Color col, int thick = 2) {
+            float wx1, wy1, wx2, wy2;
+            wPoint(lx1, ly1, wx1, wy1);
+            wPoint(lx2, ly2, wx2, wy2);
+            VectorRenderer::drawLineWorld(renderer, cam, wx1, wy1, wx2, wy2, col, glow * 1.4f, thick);
+        };
+
+        // Port & Starboard upper spoiler petals & hydraulic struts
+        drawLocalSegment(-15.0f * FT2M, -7.5f * FT2M, (-15.0f - 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, brakeColor, 2);
+        drawLocalSegment(-17.5f * FT2M, -5.0f * FT2M, (-15.0f - 6.0f * d) * FT2M, (-7.5f - 4.2f * d) * FT2M, brakeColor, 1);
+        drawLocalSegment( 15.0f * FT2M, -7.5f * FT2M, ( 15.0f + 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, brakeColor, 2);
+        drawLocalSegment( 17.5f * FT2M, -5.0f * FT2M, ( 15.0f + 6.0f * d) * FT2M, (-7.5f - 4.2f * d) * FT2M, brakeColor, 1);
+
+        // Port & Starboard lower ventral dive-brake petals
+        drawLocalSegment(-19.5f * FT2M, -2.5f * FT2M, (-19.5f - 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, brakeColor, 2);
+        drawLocalSegment( 19.5f * FT2M, -2.5f * FT2M, ( 19.5f + 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, brakeColor, 2);
+    }
+
+    // 6. Draw Ventral Ground Effect Hover Thruster Plumes
+    if (m_hoverThrustersEnabled && m_hoverThrusterThrottle > 0.02f &&
+        (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
+        SDL_Color hoverColor = {80, 230, 255, 255};
+        float hLen = (3.5f + 10.5f * m_hoverThrusterThrottle) * FT2M;
+        float hWid = 2.0f * FT2M;
+
+        auto drawHoverCone = [&](float centerX) {
+            float w1x, w1y, w2x, w2y, w3x, w3y;
+            wPoint(centerX - hWid, 10.5f * FT2M, w1x, w1y);
+            wPoint(centerX + hWid, 10.5f * FT2M, w2x, w2y);
+            wPoint(centerX,        10.5f * FT2M + hLen, w3x, w3y);
+            VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w3x, w3y, hoverColor, glow * 1.6f, 2);
+            VectorRenderer::drawLineWorld(renderer, cam, w2x, w2y, w3x, w3y, hoverColor, glow * 1.6f, 2);
+            VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w2x, w2y, hoverColor, glow * 1.2f, 1);
+        };
+
+        drawHoverCone(-14.5f * FT2M);
+        drawHoverCone( 14.5f * FT2M);
     }
 }
