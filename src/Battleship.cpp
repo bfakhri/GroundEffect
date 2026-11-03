@@ -608,7 +608,8 @@ void Battleship::spawnThrusterParticles(float dt) {
 
     auto emitFromNozzle = [&](float nozzleLocalX, float throttle) {
         if (throttle < 0.02f) return;
-        float spawnRate = 220.0f * throttle; // [particles/s]
+        // Spawn rate scales with throttle for dense, powerful exhaust
+        float spawnRate = (120.0f + 260.0f * throttle) * throttle; // [particles/s]
         int numParticles = (int)(spawnRate * dt);
         if (((float)std::rand() / (float)RAND_MAX) < (spawnRate * dt - numParticles)) {
             numParticles++;
@@ -624,32 +625,44 @@ void Battleship::spawnThrusterParticles(float dt) {
         float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
         float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
 
+        // Tight nozzle emitter aperture (tighter at high throttle)
+        float mouthSpread = (0.7f + 0.3f * (1.0f - throttle)) * FT2M;
+
         for (int i = 0; i < numParticles; ++i) {
-            if (m_particles.size() >= 600) break;
+            if (m_particles.size() >= 1200) break;
             ThrusterParticle p;
-            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.8f * FT2M;
+            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
             p.x = nozzleWx + perpDx * mouthOffset;
             p.y = nozzleWy + perpDy * mouthOffset;
 
-            // Exhaust velocity
-            float speed = (65.0f + 60.0f * throttle + (std::rand() % 35)) * FT2M;
-            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.32f;
+            // Exhaust ejection velocity strongly proportional to throttle (fast: 90 ft/s up to 500 ft/s)
+            float speedFt = 90.0f + 380.0f * throttle + (((float)std::rand() / (float)RAND_MAX) * 50.0f * throttle);
+            float speed = speedFt * FT2M; // [m/s]
+
+            // Tightly collimated exhaust beam: disperses significantly less, focusing even tighter at high throttle
+            float maxHalfAngle = 0.065f - 0.035f * throttle; // [rad] (~3.7 deg at low throttle down to ~1.7 deg at max throttle)
+            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
             float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
             float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
 
-            p.vx = m_vx * 0.35f + dirX * speed;
-            p.vy = m_vy * 0.35f + dirY * speed;
-            p.maxLife = 0.35f + ((float)(std::rand() % 40) / 100.0f);
+            p.vx = m_vx * 0.25f + dirX * speed;
+            p.vy = m_vy * 0.25f + dirY * speed;
+
+            // Plume length scales with throttle: longer sustained exhaust column at high throttle
+            float baseLife = 0.16f + 0.22f * throttle; // [s]
+            p.maxLife = baseLife + (((float)std::rand() / (float)RAND_MAX) * 0.08f);
             p.life = p.maxLife;
             p.bounceCount = 0;
 
-            int colorType = std::rand() % 4;
-            if (colorType == 0) {
-                p.color = {255, 245, 210, 255}; // Bright white-gold core spark
-            } else if (colorType <= 2) {
+            int colorRand = std::rand() % 100;
+            if (throttle > 0.65f && colorRand < 40) {
+                p.color = {255, 255, 245, 255}; // Blazing white hyper-thermal core
+            } else if (colorRand < 30) {
+                p.color = {255, 240, 180, 255}; // Bright white-gold spark
+            } else if (colorRand < 75) {
                 p.color = {255, 175, 40, 255};  // Vibrant vector flame orange
             } else {
-                p.color = {255, 100, 25, 255};  // Fiery reddish ember
+                p.color = {255, 100, 25, 255};  // Deep amber-red ember
             }
             m_particles.push_back(p);
         }
@@ -671,32 +684,32 @@ void Battleship::spawnImpulseParticles() {
         float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
         float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
 
-        for (int i = 0; i < 35; ++i) {
-            if (m_particles.size() >= 800) break;
+        for (int i = 0; i < 45; ++i) {
+            if (m_particles.size() >= 1200) break;
             ThrusterParticle p;
-            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 3.5f * FT2M;
+            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 1.0f * FT2M;
             p.x = nozzleWx + perpDx * mouthOffset;
             p.y = nozzleWy + perpDy * mouthOffset;
 
             // Extra high burst velocity for impulse shockwave
-            float speed = (90.0f + (std::rand() % 70)) * FT2M; // 27 to 48 m/s
-            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
+            float speed = (440.0f + (std::rand() % 120)) * FT2M; // [m/s]
+            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.06f; // Tightly focused
             float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
             float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
 
-            p.vx = m_vx * 0.2f + dirX * speed;
-            p.vy = m_vy * 0.2f + dirY * speed;
-            p.maxLife = 0.45f + ((float)(std::rand() % 35) / 100.0f);
+            p.vx = m_vx * 0.15f + dirX * speed;
+            p.vy = m_vy * 0.15f + dirY * speed;
+            p.maxLife = 0.35f + ((float)(std::rand() % 25) / 100.0f);
             p.life = p.maxLife;
             p.bounceCount = 0;
 
             int colorType = std::rand() % 3;
             if (colorType == 0) {
-                p.color = {255, 255, 240, 255}; // Blazing white
+                p.color = {255, 255, 245, 255}; // Blazing white
             } else if (colorType == 1) {
-                p.color = {255, 215, 90, 255};  // Brilliant yellow-gold
+                p.color = {255, 225, 110, 255}; // Brilliant yellow-gold
             } else {
-                p.color = {255, 140, 30, 255};  // High-intensity orange
+                p.color = {255, 150, 40, 255};  // High-intensity orange
             }
             m_particles.push_back(p);
         }
@@ -820,13 +833,14 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         col.a = alpha;
 
         float speed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
-        float streakLen = std::clamp(speed * 0.025f, 0.2f * FT2M, 1.2f * FT2M);
+        // High-velocity tracer streak proportional to particle speed
+        float streakLen = std::clamp(speed * 0.035f, 0.4f * FT2M, 5.0f * FT2M);
         float sx1 = p.x;
         float sy1 = p.y;
         float sx2 = p.x - (p.vx / (speed + 1e-4f)) * streakLen;
         float sy2 = p.y - (p.vy / (speed + 1e-4f)) * streakLen;
 
-        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, glow * 1.3f, 1);
+        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, glow * 1.4f, 1);
     }
 
     if (m_state == BattleshipState::CRASHED) {
