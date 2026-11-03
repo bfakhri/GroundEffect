@@ -71,6 +71,8 @@ private:
     // Warning alert beep timer & rumble hold timer
     float m_warningBeepCooldown = 0.0f;   // [s] Cooldown timer between warning alarm beeps
     float m_impactRumbleHoldTimer = 0.0f; // [s] Sustained duration for impact rumble
+    float m_crashVibrationTimer = 0.0f;   // [s] Remaining crash vibration duration (capped at 2.0s)
+    BattleshipState m_lastBattleshipState = BattleshipState::LANDED;
 
     // Throttle coupling mode: true = both triggers mirror each other (whichever is higher wins)
     bool m_throttleLockMode = false;

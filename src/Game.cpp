@@ -62,6 +62,8 @@ bool Game::init(int width, int height) {
     initStars();
 
     m_running = true;
+    m_lastBattleshipState = m_battleship.getState();
+    m_crashVibrationTimer = 0.0f;
     m_statusMessage = "READY FOR LAUNCH";
     m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
     m_messageTimer = 3.5f; // [s]
@@ -202,6 +204,8 @@ void Game::handleInput() {
             m_messageTimer = 2.5f; // [s]
             m_sound.playBeep(1000.0f, 0.1f); // [Hz], [s]
             m_scoredThisTouchdown = true;
+            m_crashVibrationTimer = 0.0f;
+            m_input.setRumble(0.0f, 0.0f, 0);
         }
     }
 }
@@ -252,6 +256,11 @@ void Game::update(float dt) {
         m_messageTimer = 1.8f; // [s]
     }
 
+    // Detect transition to crashed state
+    if (m_battleship.getState() == BattleshipState::CRASHED && m_lastBattleshipState != BattleshipState::CRASHED) {
+        m_crashVibrationTimer = 2.0f; // [s] Cap crash vibration at 2.0 seconds maximum
+    }
+
     // Controller haptic rumble based on dual thrusters and events
     if (m_battleship.getState() == BattleshipState::FLYING) {
         if (m_impactRumbleHoldTimer > 0.0f) {
@@ -265,8 +274,14 @@ void Game::update(float dt) {
             }
         }
     } else if (m_battleship.getState() == BattleshipState::CRASHED) {
-        // Strong crash shake
-        m_input.setRumble(0.85f, 0.95f, 120); // [ms]
+        if (m_crashVibrationTimer > 0.0f) {
+            m_crashVibrationTimer -= dt; // [s]
+            // Strong crash shake (capped at 2.0s maximum duration)
+            m_input.setRumble(0.85f, 0.95f, 120); // [ms]
+            if (m_crashVibrationTimer <= 0.0f) {
+                m_input.setRumble(0.0f, 0.0f, 0);
+            }
+        }
     }
 
     // Calculate altitude above surface [m]
@@ -336,6 +351,8 @@ void Game::update(float dt) {
     // Keep camera within terrain horizontal bounds and ground floor (no altitude ceiling)
     m_camera.x = std::clamp(m_camera.x, 300.0f * FT2M, m_terrain.getWorldWidth() - 300.0f * FT2M);   // [m]
     m_camera.y = std::min(m_camera.y, m_terrain.getWorldHeight() - 100.0f * FT2M);  // [m]
+
+    m_lastBattleshipState = m_battleship.getState();
 }
 
 void Game::render() {
