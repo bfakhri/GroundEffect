@@ -1,0 +1,15 @@
+# Build artifacts
+GroundEffect
+*.o
+src/*.o
+
+# Build directories
+build/
+bin/
+
+# Editor / IDE artifacts
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
