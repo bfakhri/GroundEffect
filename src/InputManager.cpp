@@ -13,7 +13,6 @@ InputManager::~InputManager() {
 }
 
 bool InputManager::init() {
-    // Scan for existing connected game controllers
     int numJoysticks = SDL_NumJoysticks();
     for (int i = 0; i < numJoysticks; ++i) {
         if (SDL_IsGameController(i)) {
@@ -79,6 +78,7 @@ void InputManager::update() {
     m_state.toggleAirBrakesPressed = false;
     m_state.toggleHoverPressed = false;
     m_state.toggleForceVectorsPressed = false;
+    m_state.cycleCameraPressed = false;
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -103,14 +103,20 @@ void InputManager::update() {
                 if (event.key.repeat == 0) {
                     switch (event.key.keysym.sym) {
                         case SDLK_ESCAPE: m_state.quitRequested = true; break;
-                        case SDLK_UP:
-                        case SDLK_w:      m_keyUp = true; break;
-                        case SDLK_DOWN:
-                        case SDLK_s:      m_keyDown = true; break;
+                        case SDLK_UP:     m_keyUp = true; break;
+                        case SDLK_DOWN:   m_keyDown = true; break;
+                        case SDLK_w:      m_keyW = true; break;
+                        case SDLK_s:      m_keyS = true; break;
                         case SDLK_LEFT:
                         case SDLK_a:      m_keyLeft = true; break;
                         case SDLK_RIGHT:
                         case SDLK_d:      m_keyRight = true; break;
+                        case SDLK_j:
+                        case SDLK_LEFTBRACKET:  m_keyJ = true; break;
+                        case SDLK_l:
+                        case SDLK_RIGHTBRACKET: m_keyL = true; break;
+                        case SDLK_i:      m_keyI = true; break;
+                        case SDLK_o:      m_keyO = true; break;
                         case SDLK_SPACE:  m_keySpace = true; break;
                         case SDLK_q:      m_keyQ = true; break;
                         case SDLK_e:      m_keyE = true; break;
@@ -119,6 +125,8 @@ void InputManager::update() {
                         case SDLK_k:      m_keyK = true; break;
                         case SDLK_h:      m_keyH = true; break;
                         case SDLK_v:      m_keyV = true; break;
+                        case SDLK_TAB:
+                        case SDLK_m:      m_keyM = true; break;
                         case SDLK_b:      m_keyAbort = true; break;
                         case SDLK_r:      m_keyRestart = true; break;
                         case SDLK_c:
@@ -134,14 +142,20 @@ void InputManager::update() {
 
             case SDL_KEYUP:
                 switch (event.key.keysym.sym) {
-                    case SDLK_UP:
-                    case SDLK_w:      m_keyUp = false; break;
-                    case SDLK_DOWN:
-                    case SDLK_s:      m_keyDown = false; break;
+                    case SDLK_UP:     m_keyUp = false; break;
+                    case SDLK_DOWN:   m_keyDown = false; break;
+                    case SDLK_w:      m_keyW = false; break;
+                    case SDLK_s:      m_keyS = false; break;
                     case SDLK_LEFT:
                     case SDLK_a:      m_keyLeft = false; break;
                     case SDLK_RIGHT:
                     case SDLK_d:      m_keyRight = false; break;
+                    case SDLK_j:
+                    case SDLK_LEFTBRACKET:  m_keyJ = false; break;
+                    case SDLK_l:
+                    case SDLK_RIGHTBRACKET: m_keyL = false; break;
+                    case SDLK_i:      m_keyI = false; break;
+                    case SDLK_o:      m_keyO = false; break;
                     case SDLK_SPACE:  m_keySpace = false; break;
                     case SDLK_q:      m_keyQ = false; break;
                     case SDLK_e:      m_keyE = false; break;
@@ -150,6 +164,8 @@ void InputManager::update() {
                     case SDLK_k:      m_keyK = false; break;
                     case SDLK_h:      m_keyH = false; break;
                     case SDLK_v:      m_keyV = false; break;
+                    case SDLK_TAB:
+                    case SDLK_m:      m_keyM = false; break;
                     case SDLK_b:      m_keyAbort = false; break;
                     case SDLK_r:      m_keyRestart = false; break;
                     case SDLK_c:
@@ -168,6 +184,9 @@ void InputManager::update() {
     float ctrlThrottleLeft = 0.0f;
     float ctrlThrottleRight = 0.0f;
     float ctrlRotate = 0.0f;
+    float ctrlPitch = 0.0f;
+    float ctrlCamYaw = 0.0f;
+    float ctrlCamPitch = 0.0f;
     bool btnAbort = false;
     bool btnBoost = false;
     bool btnRestart = false;
@@ -181,19 +200,16 @@ void InputManager::update() {
     bool btnHoverToggle = false;
 
     if (m_controller) {
-        // Left Trigger: Left Thruster proportional throttle (0 to 32767)
         Sint16 ltValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
         if (ltValue > TRIGGER_DEADZONE) {
             ctrlThrottleLeft = (float)(ltValue - TRIGGER_DEADZONE) / (32767.0f - TRIGGER_DEADZONE);
         }
 
-        // Right Trigger: Right Thruster proportional throttle (0 to 32767)
         Sint16 rtValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
         if (rtValue > TRIGGER_DEADZONE) {
             ctrlThrottleRight = (float)(rtValue - TRIGGER_DEADZONE) / (32767.0f - TRIGGER_DEADZONE);
         }
 
-        // 'A' Button or Bumpers: Impulse Thruster boost (A also acts as restart after crash)
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A) ||
             SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
             SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
@@ -203,14 +219,33 @@ void InputManager::update() {
             btnRestart = true;
         }
 
-        // Left Thumbstick X: Rotation (-32768 to 32767)
+        // Left Thumbstick X: Roll Rotation (-32768 to 32767)
         Sint16 lxValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_LEFTX);
         if (std::abs(lxValue) > STICK_DEADZONE) {
             float sign = (lxValue > 0) ? 1.0f : -1.0f;
             ctrlRotate = sign * (float)(std::abs(lxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
         }
 
-        // D-Pad override for crisp digital rotation
+        // Left Thumbstick Y: 3D Pitch Forward/Backward (pushing stick up = -Y raw = pitch forward +Z)
+        Sint16 lyValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_LEFTY);
+        if (std::abs(lyValue) > STICK_DEADZONE) {
+            float sign = (lyValue < 0) ? 1.0f : -1.0f;
+            ctrlPitch = sign * (float)(std::abs(lyValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+        }
+
+        // Right Thumbstick X/Y: 3D Camera Orbit Yaw & Elevation Pitch
+        Sint16 rxValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTX);
+        if (std::abs(rxValue) > STICK_DEADZONE) {
+            float sign = (rxValue > 0) ? 1.0f : -1.0f;
+            ctrlCamYaw = sign * (float)(std::abs(rxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+        }
+        Sint16 ryValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTY);
+        if (std::abs(ryValue) > STICK_DEADZONE) {
+            float sign = (ryValue < 0) ? 1.0f : -1.0f;
+            ctrlCamPitch = sign * (float)(std::abs(ryValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+        }
+
+        // D-Pad override for crisp digital roll rotation
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
             SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) {
             ctrlRotate = -1.0f;
@@ -219,29 +254,15 @@ void InputManager::update() {
             ctrlRotate = 1.0f;
         }
 
-        // Air brake hold: D-Pad Down or pulling Right Stick Y downward
-        Sint16 ryValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTY);
-        btnAirBrakeHeld = (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0) ||
-                          (ryValue > STICK_DEADZONE * 2);
-
-        // Air brake lock toggle: Right Stick Click
+        btnAirBrakeHeld = (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0);
         btnAirBrakeToggle = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK) != 0;
-
-        // Ground effect hover thrusters toggle: D-Pad Up
         btnHoverToggle = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_UP) != 0;
 
-        // Face Buttons:
-        // 'B' = ABORT
         btnAbort = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_B) != 0;
-        // 'X' = Insert Coin / Add Fuel
         btnAddFuel = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_X) != 0;
-        // 'Y' = Next Site / Mission
         btnNextSite = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_Y) != 0;
-        // Start = Pause
         btnPause = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_START) != 0;
-        // Back = Toggle Glow / CRT
         btnGlow = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_BACK) != 0;
-        // Left Stick Click = Toggle throttle lock mode
         btnThrottleLock = SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSTICK) != 0;
     }
 
@@ -249,12 +270,11 @@ void InputManager::update() {
     float kbThrottleLeft = 0.0f;
     float kbThrottleRight = 0.0f;
 
-    // Up / W / Space fires both thrusters together
+    // Up Arrow / Space fires both thrusters together
     if (m_keyUp || m_keySpace) {
         kbThrottleLeft = std::max(kbThrottleLeft, 1.0f);
         kbThrottleRight = std::max(kbThrottleRight, 1.0f);
     }
-    // Q controls Left Thruster, E controls Right Thruster
     if (m_keyQ) {
         kbThrottleLeft = std::max(kbThrottleLeft, 1.0f);
     }
@@ -263,16 +283,32 @@ void InputManager::update() {
     }
 
     float kbRotate = 0.0f;
-    if (m_keyLeft) kbRotate -= 1.0f;
+    if (m_keyLeft)  kbRotate -= 1.0f;
     if (m_keyRight) kbRotate += 1.0f;
 
-    m_state.throttleLeft = std::clamp(std::max(ctrlThrottleLeft, kbThrottleLeft), 0.0f, 1.0f);
-    m_state.throttleRight = std::clamp(std::max(ctrlThrottleRight, kbThrottleRight), 0.0f, 1.0f);
-    m_state.throttle = (m_state.throttleLeft + m_state.throttleRight) * 0.5f;
-    m_state.rotateAxis = std::clamp(ctrlRotate + kbRotate, -1.0f, 1.0f);
-    m_state.airBrakeHeld = m_keyDown || btnAirBrakeHeld;
+    // W / S controls 3D Pitch Forward (+Z) / Aft (-Z)
+    float kbPitch = 0.0f;
+    if (m_keyW) kbPitch += 1.0f;
+    if (m_keyS) kbPitch -= 1.0f;
 
-    // Edge triggers (press on rising edge)
+    // J / L and I / O control 3D Camera Orbit
+    float kbCamYaw = 0.0f;
+    if (m_keyJ) kbCamYaw -= 1.0f;
+    if (m_keyL) kbCamYaw += 1.0f;
+    float kbCamPitch = 0.0f;
+    if (m_keyI) kbCamPitch += 1.0f;
+    if (m_keyO) kbCamPitch -= 1.0f;
+
+    m_state.throttleLeft  = std::clamp(std::max(ctrlThrottleLeft, kbThrottleLeft), 0.0f, 1.0f);
+    m_state.throttleRight = std::clamp(std::max(ctrlThrottleRight, kbThrottleRight), 0.0f, 1.0f);
+    m_state.throttle      = (m_state.throttleLeft + m_state.throttleRight) * 0.5f;
+    m_state.rotateAxis    = std::clamp(ctrlRotate + kbRotate, -1.0f, 1.0f);
+    m_state.pitchAxis     = std::clamp(ctrlPitch + kbPitch, -1.0f, 1.0f);
+    m_state.camYawAxis    = std::clamp(ctrlCamYaw + kbCamYaw, -1.0f, 1.0f);
+    m_state.camPitchAxis  = std::clamp(ctrlCamPitch + kbCamPitch, -1.0f, 1.0f);
+    m_state.airBrakeHeld  = m_keyDown || btnAirBrakeHeld;
+
+    // Edge triggers
     if ((btnBoost && !m_prevBoostBtn) || (m_keyShift && !m_prevKeyShift)) {
         m_state.boostPressed = true;
     }
@@ -312,6 +348,9 @@ void InputManager::update() {
     if (m_keyV && !m_prevKeyV) {
         m_state.toggleForceVectorsPressed = true;
     }
+    if (m_keyM && !m_prevKeyM) {
+        m_state.cycleCameraPressed = true;
+    }
 
     m_prevAbortBtn = btnAbort;
     m_prevBoostBtn = btnBoost;
@@ -329,6 +368,7 @@ void InputManager::update() {
     m_prevKeyK = m_keyK;
     m_prevKeyH = m_keyH;
     m_prevKeyV = m_keyV;
+    m_prevKeyM = m_keyM;
     m_prevKeyAbort = m_keyAbort;
     m_prevKeyRestart = m_keyRestart;
     m_prevKeyAddFuel = m_keyAddFuel;

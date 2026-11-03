@@ -7,7 +7,11 @@ struct InputState {
     float throttleLeft = 0.0f;   // [0.0 - 1.0, dimensionless] Analog Left Trigger or Q/Up/Space throttle fraction
     float throttleRight = 0.0f;  // [0.0 - 1.0, dimensionless] Analog Right Trigger or E/Up/Space throttle fraction
     float throttle = 0.0f;       // [0.0 - 1.0, dimensionless] Combined average throttle: (throttleLeft + throttleRight) * 0.5f
-    float rotateAxis = 0.0f;     // [-1.0 to +1.0, dimensionless] Yaw rotation input (-1.0 left to +1.0 right)
+    float rotateAxis = 0.0f;     // [-1.0 to +1.0, dimensionless] Roll attitude input (-1.0 left to +1.0 right)
+    float pitchAxis = 0.0f;      // [-1.0 to +1.0, dimensionless] 3D Pitch attitude input (-1.0 aft to +1.0 forward)
+    float yawAxis = 0.0f;        // [-1.0 to +1.0, dimensionless] 3D Yaw attitude input
+    float camYawAxis = 0.0f;     // [-1.0 to +1.0, dimensionless] 3D Camera orbit yaw input (Right Stick X or J/L)
+    float camPitchAxis = 0.0f;   // [-1.0 to +1.0, dimensionless] 3D Camera orbit elevation input (Right Stick Y or I/O)
     bool abortPressed = false;   // Emergency abort (B button or B key)
     bool boostPressed = false;   // Impulse Thruster boost (A button on controller or Left Shift on keyboard)
     bool restartPressed = false; // Restart game (A button or R key)
@@ -18,10 +22,11 @@ struct InputState {
     bool toggleGlowPressed = false; // Toggle CRT glow (Back button or G key)
     bool toggleUnlimitedFuelPressed = false; // Toggle unlimited fuel (U key)
     bool toggleThrottleLockPressed = false;  // Toggle independent/locked throttle mode (T key / LS click)
-    bool airBrakeHeld = false;               // Momentary air brake hold (Down/S key or D-Pad Down)
+    bool airBrakeHeld = false;               // Momentary air brake hold (Down key or D-Pad Down)
     bool toggleAirBrakesPressed = false;     // Toggle air brakes lock (K key or RS click)
     bool toggleHoverPressed = false;         // Toggle ground effect hover thrusters (H key or D-Pad Up)
     bool toggleForceVectorsPressed = false;  // Toggle force vector overlay (V key)
+    bool cycleCameraPressed = false;         // Cycle 3D/2D camera view mode (Tab or M key)
     bool quitRequested = false;              // Quit game (ESC or window close)
 };
 
@@ -40,7 +45,7 @@ public:
     std::string getControllerName() const;
 
     // Haptic rumble
-    void setRumble(float lowFreq, float highFreq, uint32_t durationMs = 100); // lowFreq, highFreq in [0.0 - 1.0, dimensionless], durationMs in [ms]
+    void setRumble(float lowFreq, float highFreq, uint32_t durationMs = 100);
 
 private:
     void openController(int joystickIndex);
@@ -67,6 +72,12 @@ private:
     bool m_keyDown = false;
     bool m_keyLeft = false;
     bool m_keyRight = false;
+    bool m_keyW = false;
+    bool m_keyS = false;
+    bool m_keyJ = false;
+    bool m_keyL = false;
+    bool m_keyI = false;
+    bool m_keyO = false;
     bool m_keySpace = false;
     bool m_keyQ = false;
     bool m_keyE = false;
@@ -75,6 +86,7 @@ private:
     bool m_keyK = false;
     bool m_keyH = false;
     bool m_keyV = false;
+    bool m_keyM = false;
     bool m_keyAbort = false;
     bool m_keyRestart = false;
     bool m_keyAddFuel = false;
@@ -88,6 +100,7 @@ private:
     bool m_prevKeyK = false;
     bool m_prevKeyH = false;
     bool m_prevKeyV = false;
+    bool m_prevKeyM = false;
     bool m_prevKeyAbort = false;
     bool m_prevKeyRestart = false;
     bool m_prevKeyAddFuel = false;

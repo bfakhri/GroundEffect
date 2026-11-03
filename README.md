@@ -1,6 +1,6 @@
-# GroundEffect — Vector Arcade Flight Simulator
+# GroundEffect 3D — Vector Arcade Flight Simulator
 
-An authentic, high-fidelity recreation and evolution of the classic vector arcade flight game *GroundEffect*, written in modern C++ (C++17) with SDL2, featuring **Xbox 360 controller** support with true proportional analog throttle, haptic rumble feedback, dynamic zoom camera, vector stroke typography, aerodynamic ground-effect physics, and real-time procedural audio synthesis.
+An authentic, high-fidelity 3D recreation and evolution of the classic vector arcade flight game *GroundEffect*, written in modern C++ (C++17) with pure SDL2 (zero external 3D/OpenGL package dependencies), featuring **6-DOF 3D flight physics**, **3D wireframe battleship & lunar terrain heightfields**, **Xbox 360 controller** support with true proportional analog throttle, haptic rumble feedback, multi-mode 3D perspective camera (`CHASE 3D`, `ORBIT 3D`, `ISOMETRIC 3D`, `CLASSIC 2D`), vector stroke typography, 3D aerodynamic ground-effect physics, automatic ground-effect hover thrusters, air brakes, real-time 3D force vector telemetry, and procedural audio synthesis.
 
 ---
 
@@ -65,13 +65,15 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 |---|---|
 | **Left Trigger (`LT`)** | **Left Main Thruster** (Continuous analog 0% - 100%, induces clockwise tilt) |
 | **Right Trigger (`RT`)** | **Right Main Thruster** (Continuous analog 0% - 100%, induces counter-clockwise tilt) |
-| **Left Stick (`LS`) X-Axis** | **Attitude Control (RCS)** (Smooth analog yaw steering) |
-| **D-Pad Left / Right** | Digital Rotation Left / Right (Classic arcade feel) |
-| **D-Pad Up** | **TOGGLE HOVER THRUSTERS** (Auto-modulating ground-effect hover & terrain skating) |
-| **D-Pad Down / Right Stick (`RS`)** | **AIR BRAKES** (Hold D-Pad Down / RS Down, or click RS to lock) |
-| **`B` Button** | **EMERGENCY ABORT** (Emergency upright dual-retro burn) |
+| **Left Stick (`LS`) X / Y** | **3D Attitude Control (RCS Roll & Pitch)** |
+| **Right Stick (`RS`) X / Y** | **3D Camera Orbit (Yaw & Elevation Pitch)** |
+| **D-Pad Left / Right** | Digital Roll Left / Right |
+| **D-Pad Up** | **TOGGLE HOVER THRUSTERS** (Auto-modulating 3D ground-effect hover & terrain skating) |
+| **D-Pad Down / `RS` Click** | **AIR BRAKES** (Hold D-Pad Down, or click RS to lock) |
+| **`LS` Click** | **TOGGLE THROTTLE LOCK** (Link both engines to single trigger) |
+| **`B` Button** | **EMERGENCY ABORT** (Emergency 3D upright dual-retro burn) |
 | **`X` Button** | **INSERT COIN** (+227 kg Fuel / +500 lb) |
-| **`Y` Button** | **CHANGE MISSION** (Cycle landing terrain site) |
+| **`Y` Button** | **CHANGE MISSION** (Cycle 3D landing terrain site) |
 | **`A` Button / Bumpers (`LB`/`RB`)** | **IMPULSE THRUSTER BOOST** (One-frame retro impulse boost to halt fall cold; launches next flight if crashed) |
 | **`START` Button** | **PAUSE / RESUME** |
 | **`BACK` Button** | **TOGGLE CRT GLOW / SCANLINES** |
@@ -80,14 +82,17 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 
 | Key | Function |
 |---|---|
-| **Q** | Fire Left Thruster (Induces rightward tilt) |
-| **E** | Fire Right Thruster (Induces leftward tilt) |
-| **Up Arrow / W / Space** | Fire Both Main Thrusters (Balanced vertical thrust) |
-| **Down Arrow / S** | **Hold Air Brakes** (Aerodynamic drag & spin damping) |
+| **Q / E** | Fire Left / Right Thruster Independently |
+| **Up Arrow / Space** | Fire Both Main Thrusters (Balanced vertical thrust) |
+| **W / S** | **3D Pitch Forward (+Z) / Pitch Aft (-Z)** |
+| **Left / Right Arrows or A / D** | **3D Roll Left (-X) / Roll Right (+X)** |
+| **J / L (or `[` / `]`) & I / O** | **3D Camera Orbit (Yaw & Elevation Pitch)** |
+| **Tab / M** | **Cycle Camera View Mode** (`3D CHASE`, `3D ORBIT`, `3D ISOMETRIC`, `CLASSIC 2D`) |
+| **Down Arrow** | **Hold Air Brakes** (Aerodynamic drag & 3D spin damping) |
 | **K** | **Toggle Air Brakes Lock** |
-| **H** | **Toggle Ground Effect Hover Thrusters** (Auto-hover & terrain skating) |
+| **H** | **Toggle Ground Effect Hover Thrusters** (Auto-hover & 3D terrain skating) |
+| **V** | **Toggle 3D Force Vector Overlay** |
 | **Left Shift / Right Shift** | **Impulse Thruster Boost** (One-frame retro impulse boost to halt fall cold) |
-| **Left / Right Arrows or A / D** | Attitude Thrusters (RCS Yaw) |
 | **T** | **Toggle Throttle Lock Mode** (Link both engines to either trigger) |
 | **U** | **Toggle Unlimited Fuel** (Testing mode) |
 | **B** | Emergency Abort |

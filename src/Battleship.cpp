@@ -11,10 +11,10 @@ static constexpr float LB2KG = 0.45359237f;      // [kg/lb] Mass conversion fact
 static const float GRAVITY = 28.0f * FT2M;           // [m/s^2] Downward gravitational acceleration: 8.5344 m/s^2 (converted from 28.0 ft/s^2)
 static const float THRUST_PER_ENGINE = 60.0f * FT2M; // [m/s^2] Main engine thrust acceleration: 18.288 m/s^2 (converted from 60.0 ft/s^2)
 static const float THRUST_EXPONENT = 1.6f;           // [dimensionless] Slightly exponential throttle curve for precision feathering
-static const float RCS_FUEL_BURN_RATE = 2.5f * LB2KG;// [kg/s] Fuel consumed by RCS thrusters per second at full rotation: 1.134 kg/s (converted from 2.5 lb/s)
-static const float FUEL_BURN_RATE = 28.0f * LB2KG;   // [kg/s] Fuel consumed at 100% dual throttle per second: 12.701 kg/s (converted from 28.0 lb/s)
+static const float RCS_FUEL_BURN_RATE = 2.5f * LB2KG;// [kg/s] Fuel consumed by RCS thrusters per second at full rotation: 1.134 kg/s
+static const float FUEL_BURN_RATE = 28.0f * LB2KG;   // [kg/s] Fuel consumed at 100% dual throttle per second: 12.701 kg/s
 static const float DAMAGE_PER_VELOCITY = 0.40f / FT2M;// [%/(m/s)] Structural damage percentage accrued per m/s impact speed: 1.3123 %/(m/s)
-static const float IMPULSE_DELTA_V = 205.0f * FT2M;  // [m/s] Impulse Thruster velocity change: 62.484 m/s (decreased 2x from 410.0 ft/s)
+static const float IMPULSE_DELTA_V = 205.0f * FT2M;  // [m/s] Impulse Thruster velocity change: 62.484 m/s
 static const float RAD2DEG = 180.0f / 3.1415926535f; // [deg/rad] Radians to degrees conversion factor
 
 static inline float applyThrustCurve(float t) {
@@ -23,115 +23,280 @@ static inline float applyThrustCurve(float t) {
     return std::pow(t, THRUST_EXPONENT);
 }
 
+static void wrapAngleRad(float& a) {
+    while (a > 3.14159265f) a -= 6.2831853f;
+    while (a < -3.14159265f) a += 6.2831853f;
+}
+
 Battleship::Battleship() {
     initCraftGeometry();
-    resetLanded(975.0f * FT2M, (1720.0f - 12.0f) * FT2M, 750.0f * LB2KG); // [m] 297.18 m, [m] 520.598 m, [kg] 340.194 kg
+    resetLanded(975.0f * FT2M, (1720.0f - 12.0f) * FT2M, 750.0f * LB2KG, 0.0f);
+}
+
+Vec3 Battleship::localToWorldDir(const Vec3& localDir) const {
+    // 1. Roll (m_angle) in XY plane
+    float cR = std::cos(m_angle);
+    float sR = std::sin(m_angle);
+    float x1 = localDir.x * cR - localDir.y * sR;
+    float y1 = localDir.x * sR + localDir.y * cR;
+    float z1 = localDir.z;
+
+    // 2. Pitch (m_pitch) in YZ plane (positive pitch tilts top -Y toward +Z)
+    float cP = std::cos(m_pitch);
+    float sP = std::sin(m_pitch);
+    float x2 = x1;
+    float y2 = y1 * cP + z1 * sP;
+    float z2 = -y1 * sP + z1 * cP;
+
+    // 3. Yaw (m_yaw) in XZ plane
+    float cY = std::cos(m_yaw);
+    float sY = std::sin(m_yaw);
+    float wx = x2 * cY + z2 * sY;
+    float wy = y2;
+    float wz = -x2 * sY + z2 * cY;
+
+    return {wx, wy, wz};
+}
+
+Vec3 Battleship::localToWorldPoint(const Vec3& localPt) const {
+    Vec3 d = localToWorldDir(localPt);
+    return {m_x + d.x, m_y + d.y, m_z + d.z};
 }
 
 void Battleship::initCraftGeometry() {
     m_craftLines.clear();
+    m_craftLines3D.clear();
 
-    // ── 1. Armored Citadel & Main Hull ──────────────────────────────────────
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M,  11.0f * FT2M,  0.0f * FT2M});    // Keel / Bottom armor plate
-    m_craftLines.push_back({-15.0f * FT2M, -6.0f * FT2M,  15.0f * FT2M, -6.0f * FT2M});    // Mid-deck armor seam
-    m_craftLines.push_back({-12.0f * FT2M, -12.0f * FT2M, 12.0f * FT2M, -12.0f * FT2M});   // Upper citadel deck
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -16.0f * FT2M, -4.0f * FT2M});    // Port lower armor facet
-    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});    // Starboard lower armor facet
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -8.0f * FT2M});    // Port belt armor
-    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -8.0f * FT2M});    // Starboard belt armor
-    m_craftLines.push_back({-15.0f * FT2M, -8.0f * FT2M, -12.0f * FT2M, -12.0f * FT2M});   // Port upper armor facet
-    m_craftLines.push_back({ 15.0f * FT2M, -8.0f * FT2M,  12.0f * FT2M, -12.0f * FT2M});   // Starboard upper armor facet
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});    // Longitudinal armor bulkhead
+    // ── 2D Profile Geometry (Z=0 Silhouette) ────────────────────────────────
+    // 1. Armored Citadel & Main Hull
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M,  11.0f * FT2M,  0.0f * FT2M});
+    m_craftLines.push_back({-15.0f * FT2M, -6.0f * FT2M,  15.0f * FT2M, -6.0f * FT2M});
+    m_craftLines.push_back({-12.0f * FT2M, -12.0f * FT2M, 12.0f * FT2M, -12.0f * FT2M});
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -16.0f * FT2M, -4.0f * FT2M});
+    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -8.0f * FT2M});
+    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -8.0f * FT2M});
+    m_craftLines.push_back({-15.0f * FT2M, -8.0f * FT2M, -12.0f * FT2M, -12.0f * FT2M});
+    m_craftLines.push_back({ 15.0f * FT2M, -8.0f * FT2M,  12.0f * FT2M, -12.0f * FT2M});
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});
 
-    // ── 2. Command Bridge Superstructure & Sensor Mast ───────────────────────
-    m_craftLines.push_back({-10.0f * FT2M, -12.0f * FT2M, -6.0f * FT2M, -18.0f * FT2M});  // Port bridge riser
-    m_craftLines.push_back({ 10.0f * FT2M, -12.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});  // Starboard bridge riser
-    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});   // Bridge command deck
-    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M, -4.0f * FT2M, -20.5f * FT2M});  // Port conning tower
-    m_craftLines.push_back({ 6.0f * FT2M, -18.0f * FT2M,  4.0f * FT2M, -20.5f * FT2M});  // Starboard conning tower
-    m_craftLines.push_back({-4.0f * FT2M, -20.5f * FT2M,  4.0f * FT2M, -20.5f * FT2M});  // Bridge roof
-    // Armored Viewport Visor
+    // 2. Command Bridge Superstructure & Sensor Mast
+    m_craftLines.push_back({-10.0f * FT2M, -12.0f * FT2M, -6.0f * FT2M, -18.0f * FT2M});
+    m_craftLines.push_back({ 10.0f * FT2M, -12.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});
+    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});
+    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M, -4.0f * FT2M, -20.5f * FT2M});
+    m_craftLines.push_back({ 6.0f * FT2M, -18.0f * FT2M,  4.0f * FT2M, -20.5f * FT2M});
+    m_craftLines.push_back({-4.0f * FT2M, -20.5f * FT2M,  4.0f * FT2M, -20.5f * FT2M});
     m_craftLines.push_back({-4.5f * FT2M, -18.8f * FT2M,  4.5f * FT2M, -18.8f * FT2M});
-    // Forward Sensor Array / Targeting Mast
-    m_craftLines.push_back({ 0.0f * FT2M, -20.5f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Main antenna mast
-    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  2.5f * FT2M, -22.0f * FT2M});  // Radar crossbar
-    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Sensor vane port
-    m_craftLines.push_back({ 2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});  // Sensor vane starboard
+    m_craftLines.push_back({ 0.0f * FT2M, -20.5f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
+    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  2.5f * FT2M, -22.0f * FT2M});
+    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
+    m_craftLines.push_back({ 2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
 
-    // ── 3. Twin Heavy Artillery Turrets (Dual-Barrel Main Cannons) ───────────
-    // Port Cannon Turret
-    m_craftLines.push_back({-8.5f * FT2M, -12.0f * FT2M, -7.5f * FT2M, -14.5f * FT2M}); // Turret housing
+    // 3. Twin Heavy Artillery Turrets
+    m_craftLines.push_back({-8.5f * FT2M, -12.0f * FT2M, -7.5f * FT2M, -14.5f * FT2M});
     m_craftLines.push_back({-7.5f * FT2M, -14.5f * FT2M, -3.5f * FT2M, -14.5f * FT2M});
     m_craftLines.push_back({-3.5f * FT2M, -14.5f * FT2M, -2.5f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({-6.5f * FT2M, -14.5f * FT2M, -6.5f * FT2M, -17.5f * FT2M}); // Left barrel
-    m_craftLines.push_back({-4.5f * FT2M, -14.5f * FT2M, -4.5f * FT2M, -17.5f * FT2M}); // Right barrel
-    m_craftLines.push_back({-7.0f * FT2M, -17.5f * FT2M, -4.0f * FT2M, -17.5f * FT2M}); // Muzzle brake
+    m_craftLines.push_back({-6.5f * FT2M, -14.5f * FT2M, -6.5f * FT2M, -17.5f * FT2M});
+    m_craftLines.push_back({-4.5f * FT2M, -14.5f * FT2M, -4.5f * FT2M, -17.5f * FT2M});
+    m_craftLines.push_back({-7.0f * FT2M, -17.5f * FT2M, -4.0f * FT2M, -17.5f * FT2M});
 
-    // Starboard Cannon Turret
-    m_craftLines.push_back({ 2.5f * FT2M, -12.0f * FT2M,  3.5f * FT2M, -14.5f * FT2M}); // Turret housing
+    m_craftLines.push_back({ 2.5f * FT2M, -12.0f * FT2M,  3.5f * FT2M, -14.5f * FT2M});
     m_craftLines.push_back({ 3.5f * FT2M, -14.5f * FT2M,  7.5f * FT2M, -14.5f * FT2M});
     m_craftLines.push_back({ 7.5f * FT2M, -14.5f * FT2M,  8.5f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({ 4.5f * FT2M, -14.5f * FT2M,  4.5f * FT2M, -17.5f * FT2M}); // Left barrel
-    m_craftLines.push_back({ 6.5f * FT2M, -14.5f * FT2M,  6.5f * FT2M, -17.5f * FT2M}); // Right barrel
-    m_craftLines.push_back({ 4.0f * FT2M, -17.5f * FT2M,  7.0f * FT2M, -17.5f * FT2M}); // Muzzle brake
+    m_craftLines.push_back({ 4.5f * FT2M, -14.5f * FT2M,  4.5f * FT2M, -17.5f * FT2M});
+    m_craftLines.push_back({ 6.5f * FT2M, -14.5f * FT2M,  6.5f * FT2M, -17.5f * FT2M});
+    m_craftLines.push_back({ 4.0f * FT2M, -17.5f * FT2M,  7.0f * FT2M, -17.5f * FT2M});
 
-    // ── 4. Flank Torpedo Sponsons & Missile Pods ──────────────────────────────
-    // Port Sponson
+    // 4. Flank Torpedo Sponsons
     m_craftLines.push_back({-15.0f * FT2M, -7.5f * FT2M, -19.5f * FT2M, -5.5f * FT2M});
     m_craftLines.push_back({-19.5f * FT2M, -5.5f * FT2M, -19.5f * FT2M, -2.5f * FT2M});
     m_craftLines.push_back({-19.5f * FT2M, -2.5f * FT2M, -15.0f * FT2M, -1.0f * FT2M});
-    m_craftLines.push_back({-19.5f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -4.0f * FT2M}); // Sponson launcher tube
+    m_craftLines.push_back({-19.5f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -4.0f * FT2M});
 
-    // Starboard Sponson
     m_craftLines.push_back({ 15.0f * FT2M, -7.5f * FT2M,  19.5f * FT2M, -5.5f * FT2M});
     m_craftLines.push_back({ 19.5f * FT2M, -5.5f * FT2M,  19.5f * FT2M, -2.5f * FT2M});
     m_craftLines.push_back({ 19.5f * FT2M, -2.5f * FT2M,  15.0f * FT2M, -1.0f * FT2M});
-    m_craftLines.push_back({ 19.5f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -4.0f * FT2M}); // Sponson launcher tube
+    m_craftLines.push_back({ 19.5f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -4.0f * FT2M});
 
-    // ── 5. Armored Twin Engine Cowlings & Centerline Reactor Core ────────────
-    // Port Engine (Nozzle exit centered at x = -5.5 ft = -1.68 m)
+    // 5. Twin Engine Cowlings
     m_craftLines.push_back({-9.0f * FT2M, 0.0f * FT2M, -9.0f * FT2M, 5.0f * FT2M});
     m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-9.0f * FT2M, 5.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M}); // Exhaust bell lip
-    m_craftLines.push_back({-8.0f * FT2M, 2.5f * FT2M, -3.0f * FT2M, 2.5f * FT2M}); // Throat ring
+    m_craftLines.push_back({-9.0f * FT2M, 5.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({-8.0f * FT2M, 2.5f * FT2M, -3.0f * FT2M, 2.5f * FT2M});
 
-    // Starboard Engine (Nozzle exit centered at x = +5.5 ft = +1.68 m)
     m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  2.0f * FT2M, 5.0f * FT2M});
     m_craftLines.push_back({ 9.0f * FT2M, 0.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({ 2.0f * FT2M, 5.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M}); // Exhaust bell lip
-    m_craftLines.push_back({ 3.0f * FT2M, 2.5f * FT2M,  8.0f * FT2M, 2.5f * FT2M}); // Throat ring
+    m_craftLines.push_back({ 2.0f * FT2M, 5.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M});
+    m_craftLines.push_back({ 3.0f * FT2M, 2.5f * FT2M,  8.0f * FT2M, 2.5f * FT2M});
 
-    // Central Auxiliary Reactor Core Exhaust
     m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -1.5f * FT2M, 3.0f * FT2M});
     m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
     m_craftLines.push_back({-1.5f * FT2M, 3.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
 
-    // ── 6. Reinforced Combat Landing Skids ────────────────────────────────────
-    // Port Combat Landing Gear & Armored Skid
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Heavy primary strut
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Armored piston brace
-    m_craftLines.push_back({ -6.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M}); // Inward compression strut
-    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -13.0f * FT2M, 12.0f * FT2M}); // Ground contact runner
-    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -25.0f * FT2M,  9.5f * FT2M}); // Front upturned skid bow
-    m_craftLines.push_back({-13.0f * FT2M, 12.0f * FT2M, -11.0f * FT2M,  9.5f * FT2M}); // Rear upturned skid heel
+    // 6. Combat Landing Skids
+    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ -6.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -13.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -25.0f * FT2M,  9.5f * FT2M});
+    m_craftLines.push_back({-13.0f * FT2M, 12.0f * FT2M, -11.0f * FT2M,  9.5f * FT2M});
 
-    // Starboard Combat Landing Gear & Armored Skid
-    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Heavy primary strut
-    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Armored piston brace
-    m_craftLines.push_back({  6.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M}); // Inward compression strut
-    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  23.0f * FT2M, 12.0f * FT2M}); // Ground contact runner
-    m_craftLines.push_back({ 23.0f * FT2M, 12.0f * FT2M,  25.0f * FT2M,  9.5f * FT2M}); // Front upturned skid bow
-    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M}); // Rear upturned skid heel
+    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({  6.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  23.0f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ 23.0f * FT2M, 12.0f * FT2M,  25.0f * FT2M,  9.5f * FT2M});
+    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M});
+
+    // ── Full 3D Volumetric Wireframe Battleship Geometry (in Feet -> Meters) ──
+    auto add3D = [&](float x1, float y1, float z1, float x2, float y2, float z2) {
+        m_craftLines3D.push_back({
+            x1 * FT2M, y1 * FT2M, z1 * FT2M,
+            x2 * FT2M, y2 * FT2M, z2 * FT2M
+        });
+    };
+
+    // A. 3D Armored Citadel Hull Rings (Fore z = +9 ft, Aft z = -9 ft)
+    const float zHull[2] = {-9.0f, 9.0f};
+    for (float z : zHull) {
+        add3D(-11.0f,  0.0f, z,  11.0f,  0.0f, z);
+        add3D(-16.0f, -4.0f, z,  16.0f, -4.0f, z);
+        add3D(-12.0f, -12.0f, z, 12.0f, -12.0f, z);
+        add3D(-11.0f,  0.0f, z, -16.0f, -4.0f, z);
+        add3D( 11.0f,  0.0f, z,  16.0f, -4.0f, z);
+        add3D(-16.0f, -4.0f, z, -15.0f, -8.0f, z);
+        add3D( 16.0f, -4.0f, z,  15.0f, -8.0f, z);
+        add3D(-15.0f, -8.0f, z, -12.0f, -12.0f, z);
+        add3D( 15.0f, -8.0f, z,  12.0f, -12.0f, z);
+    }
+
+    // Longitudinal 3D Citadel Chines connecting Aft (-9 ft) to Fore (+9 ft)
+    add3D(-11.0f,  0.0f, -9.0f, -11.0f,  0.0f,  9.0f);
+    add3D( 11.0f,  0.0f, -9.0f,  11.0f,  0.0f,  9.0f);
+    add3D(-16.0f, -4.0f, -9.0f, -16.0f, -4.0f,  9.0f);
+    add3D( 16.0f, -4.0f, -9.0f,  16.0f, -4.0f,  9.0f);
+    add3D(-15.0f, -8.0f, -9.0f, -15.0f, -8.0f,  9.0f);
+    add3D( 15.0f, -8.0f, -9.0f,  15.0f, -8.0f,  9.0f);
+    add3D(-12.0f, -12.0f, -9.0f, -12.0f, -12.0f, 9.0f);
+    add3D( 12.0f, -12.0f, -9.0f,  12.0f, -12.0f, 9.0f);
+
+    // Beveled Bow Prow (z = +13.5 ft) & Stern Bulkhead (z = -13.5 ft)
+    for (float signZ : {-1.0f, 1.0f}) {
+        float zMid = 9.0f * signZ;
+        float zTip = 13.5f * signZ;
+        add3D(-7.0f, -2.0f, zTip,  7.0f, -2.0f, zTip);
+        add3D(-7.0f, -10.0f, zTip, 7.0f, -10.0f, zTip);
+        add3D(-7.0f, -2.0f, zTip, -7.0f, -10.0f, zTip);
+        add3D( 7.0f, -2.0f, zTip,  7.0f, -10.0f, zTip);
+        add3D(-11.0f,  0.0f, zMid, -7.0f, -2.0f, zTip);
+        add3D( 11.0f,  0.0f, zMid,  7.0f, -2.0f, zTip);
+        add3D(-12.0f, -12.0f, zMid, -7.0f, -10.0f, zTip);
+        add3D( 12.0f, -12.0f, zMid,  7.0f, -10.0f, zTip);
+    }
+
+    // B. 3D Command Bridge Superstructure & Sensor Mast
+    const float zBr[2] = {-4.5f, 4.5f};
+    for (float z : zBr) {
+        add3D(-10.0f, -12.0f, z, -6.0f, -18.0f, z);
+        add3D( 10.0f, -12.0f, z,  6.0f, -18.0f, z);
+        add3D(-6.0f,  -18.0f, z,  6.0f, -18.0f, z);
+        add3D(-6.0f,  -18.0f, z, -4.0f, -20.5f, z);
+        add3D( 6.0f,  -18.0f, z,  4.0f, -20.5f, z);
+        add3D(-4.0f,  -20.5f, z,  4.0f, -20.5f, z);
+    }
+    add3D(-6.0f, -18.0f, -4.5f, -6.0f, -18.0f, 4.5f);
+    add3D( 6.0f, -18.0f, -4.5f,  6.0f, -18.0f, 4.5f);
+    add3D(-4.0f, -20.5f, -4.5f, -4.0f, -20.5f, 4.5f);
+    add3D( 4.0f, -20.5f, -4.5f,  4.0f, -20.5f, 4.5f);
+    // 3D Radar & Targeting Mast
+    add3D( 0.0f, -20.5f,  0.0f,  0.0f, -24.0f,  0.0f);
+    add3D(-3.0f, -22.2f,  0.0f,  3.0f, -22.2f,  0.0f);
+    add3D( 0.0f, -22.2f, -3.0f,  0.0f, -22.2f,  3.0f);
+    add3D(-3.0f, -22.2f,  0.0f,  0.0f, -24.0f,  0.0f);
+    add3D( 3.0f, -22.2f,  0.0f,  0.0f, -24.0f,  0.0f);
+
+    // C. Port & Starboard 3D Dual-Barrel Artillery Turrets
+    for (float sX : {-1.0f, 1.0f}) {
+        float xIn  = 2.8f * sX;
+        float xOut = 8.2f * sX;
+        float xB1  = 4.5f * sX;
+        float xB2  = 6.5f * sX;
+        add3D(xIn,  -12.0f, -3.0f, xOut, -12.0f, -3.0f);
+        add3D(xIn,  -12.0f,  3.0f, xOut, -12.0f,  3.0f);
+        add3D(xIn,  -14.5f, -2.0f, xOut, -14.5f, -2.0f);
+        add3D(xIn,  -14.5f,  2.0f, xOut, -14.5f,  2.0f);
+        add3D(xIn,  -14.5f, -2.0f, xIn,  -14.5f,  2.0f);
+        add3D(xOut, -14.5f, -2.0f, xOut, -14.5f,  2.0f);
+        add3D(xB1,  -14.5f,  1.0f, xB1,  -17.8f,  3.5f);
+        add3D(xB2,  -14.5f,  1.0f, xB2,  -17.8f,  3.5f);
+    }
+
+    // D. Port & Starboard 3D Flank Torpedo Sponsons
+    for (float sX : {-1.0f, 1.0f}) {
+        for (float z : {-4.5f, 4.5f}) {
+            add3D(15.0f * sX, -7.5f, z, 19.5f * sX, -5.5f, z);
+            add3D(19.5f * sX, -5.5f, z, 19.5f * sX, -2.5f, z);
+            add3D(19.5f * sX, -2.5f, z, 15.0f * sX, -1.0f, z);
+        }
+        add3D(19.5f * sX, -5.5f, -4.5f, 19.5f * sX, -5.5f, 4.5f);
+        add3D(19.5f * sX, -2.5f, -4.5f, 19.5f * sX, -2.5f, 4.5f);
+    }
+
+    // E. Twin 3D Octagonal Engine Cowlings & Bells (Port x = -5.5 ft, Starboard x = +5.5 ft)
+    for (float cx : {-5.5f, 5.5f}) {
+        const float rTop = 3.0f;
+        const float rBot = 3.6f;
+        const int segs = 6;
+        for (int i = 0; i < segs; ++i) {
+            float a1 = (float)i * (6.2831853f / segs);
+            float a2 = (float)(i + 1) * (6.2831853f / segs);
+            float x1t = cx + rTop * std::cos(a1), z1t = rTop * std::sin(a1);
+            float x2t = cx + rTop * std::cos(a2), z2t = rTop * std::sin(a2);
+            float x1b = cx + rBot * std::cos(a1), z1b = rBot * std::sin(a1);
+            float x2b = cx + rBot * std::cos(a2), z2b = rBot * std::sin(a2);
+
+            add3D(x1t, 0.0f, z1t, x2t, 0.0f, z2t); // Top engine ring
+            add3D(x1b, 5.0f, z1b, x2b, 5.0f, z2b); // Exhaust bell rim
+            add3D(x1t, 0.0f, z1t, x1b, 5.0f, z1b); // Bell vertical rib
+        }
+    }
+
+    // F. 4-Corner Reinforced 3D Combat Landing Gear & Full-Length Twin Skids
+    for (float sX : {-1.0f, 1.0f}) {
+        float skidX = 18.0f * sX;
+        // Full-length 3D ground contact runner from z = -12 ft (aft) to z = +12 ft (fore)
+        add3D(skidX - 1.5f * sX, 12.0f, -12.0f, skidX - 1.5f * sX, 12.0f, 12.0f);
+        add3D(skidX + 1.5f * sX, 12.0f, -12.0f, skidX + 1.5f * sX, 12.0f, 12.0f);
+        add3D(skidX - 1.5f * sX, 12.0f, -12.0f, skidX + 1.5f * sX, 12.0f, -12.0f);
+        add3D(skidX - 1.5f * sX, 12.0f,  12.0f, skidX + 1.5f * sX, 12.0f,  12.0f);
+        // Upturned 3D skid bow (fore) & heel (aft)
+        add3D(skidX, 12.0f,  12.0f, skidX + 1.5f * sX, 9.5f,  15.0f);
+        add3D(skidX, 12.0f, -12.0f, skidX + 1.5f * sX, 9.5f, -15.0f);
+        // Lateral skid outrigger bars at z = -8 ft and z = +8 ft
+        for (float zLeg : {-8.0f, 8.0f}) {
+            add3D(11.0f * sX,  0.0f, zLeg, skidX, 12.0f, zLeg);
+            add3D(16.0f * sX, -4.0f, zLeg, skidX, 12.0f, zLeg);
+            add3D( 6.0f * sX,  0.0f, zLeg, skidX, 12.0f, zLeg);
+            add3D(13.0f * sX, 12.0f, zLeg, 23.0f * sX, 12.0f, zLeg);
+        }
+    }
 }
 
-void Battleship::reset(float startX, float startY, float startFuel) {
+void Battleship::reset(float startX, float startY, float startFuel, float startZ) {
     m_state = BattleshipState::FLYING;
     m_x = startX;              // [m]
     m_y = startY;              // [m]
-    m_vx = 30.0f * FT2M;       // [m/s] Initial entry horizontal drift: 9.144 m/s (converted from 30.0 ft/s)
-    m_vy = 2.0f * FT2M;        // [m/s] Initial entry vertical drift: 0.6096 m/s (converted from 2.0 ft/s)
+    m_z = startZ;              // [m]
+    m_vx = 30.0f * FT2M;       // [m/s] Initial entry horizontal drift: 9.144 m/s
+    m_vy = 2.0f * FT2M;        // [m/s] Initial entry vertical drift: 0.6096 m/s
+    m_vz = 0.0f;               // [m/s]
     m_angle = 0.0f;            // [rad]
     m_angularVel = 0.0f;       // [rad/s]
+    m_pitch = 0.0f;            // [rad]
+    m_pitchVel = 0.0f;         // [rad/s]
+    m_yaw = 0.0f;              // [rad]
+    m_yawVel = 0.0f;           // [rad/s]
     m_fuel = startFuel;        // [kg]
     m_throttleLeft = 0.0f;     // [0.0 - 1.0, dimensionless]
     m_throttleRight = 0.0f;    // [0.0 - 1.0, dimensionless]
@@ -145,6 +310,8 @@ void Battleship::reset(float startX, float startY, float startFuel) {
     m_flameFlicker = 0.0f;     // [rad]
     m_rcsPuffLeft = 0.0f;      // [s]
     m_rcsPuffRight = 0.0f;     // [s]
+    m_rcsPuffFore = 0.0f;      // [s]
+    m_rcsPuffAft = 0.0f;       // [s]
     m_debris.clear();
     m_particles.clear();
     m_takeoffCooldown = 0.0f;
@@ -160,56 +327,65 @@ void Battleship::reset(float startX, float startY, float startFuel) {
     m_forceVectors.clear();
 }
 
-void Battleship::applyForceAtLocalPoint(float localRx, float localRy,
-                                        float localAx, float localAy,
-                                        float& accumWorldAx, float& accumWorldAy,
-                                        float& accumAngularAccel,
-                                        const std::string& label, SDL_Color color) {
-    float cosA = std::cos(m_angle);
-    float sinA = std::sin(m_angle);
+void Battleship::applyForceAtLocalPoint3D(const Vec3& localR,
+                                          const Vec3& localA,
+                                          Vec3& accumWorldA,
+                                          float& accumRollAccel,
+                                          float& accumPitchAccel,
+                                          float& accumYawAccel,
+                                          const std::string& label, SDL_Color color) {
+    Vec3 worldPos = localToWorldPoint(localR);
+    Vec3 worldA = localToWorldDir(localA);
 
-    // World-space hull attachment point
-    float wx = m_x + (localRx * cosA - localRy * sinA);
-    float wy = m_y + (localRx * sinA + localRy * cosA);
+    accumWorldA += worldA;
 
-    // World-space acceleration vector imparted to the ship
-    float worldAx = localAx * cosA - localAy * sinA;
-    float worldAy = localAx * sinA + localAy * cosA;
+    // 3D rigid-body torques around center of mass:
+    // Roll torque (XY plane):  tau_roll  = r_x * F_y - r_y * F_x
+    // Pitch torque (YZ plane): tau_pitch = r_z * F_y - r_y * F_z
+    // Yaw torque (XZ plane):   tau_yaw   = r_x * F_z - r_z * F_x
+    float tauRoll  = localR.x * localA.y - localR.y * localA.x;
+    float tauPitch = localR.z * localA.y - localR.y * localA.z;
+    float tauYaw   = localR.x * localA.z - localR.z * localA.x;
 
-    accumWorldAx += worldAx;
-    accumWorldAy += worldAy;
+    accumRollAccel  += tauRoll / HULL_INERTIA;
+    accumPitchAccel += tauPitch / HULL_INERTIA;
+    accumYawAccel   += tauYaw / HULL_INERTIA;
 
-    // 2D cross-product torque around center of mass: tau = r_x * F_y - r_y * F_x
-    float torque = localRx * localAy - localRy * localAx;
-    accumAngularAccel += torque / HULL_INERTIA;
-
-    if (!label.empty() && (worldAx * worldAx + worldAy * worldAy) > 1e-3f) {
-        m_forceVectors.push_back({wx, wy, worldAx, worldAy, color, label});
+    if (!label.empty() && worldA.lengthSq() > 1e-3f) {
+        m_forceVectors.push_back({worldPos.x, worldPos.y, worldPos.z, worldA.x, worldA.y, worldA.z, color, label});
     }
 }
 
-void Battleship::resetLanded(float startX, float startY, float startFuel) {
-    reset(startX, startY, startFuel);
+void Battleship::resetLanded(float startX, float startY, float startFuel, float startZ) {
+    reset(startX, startY, startFuel, startZ);
     m_state = BattleshipState::LANDED;
     m_landedSurfaceY = startY;
     m_y = startY;
     m_vx = 0.0f;
     m_vy = 0.0f;
+    m_vz = 0.0f;
     m_angle = 0.0f;
     m_angularVel = 0.0f;
+    m_pitch = 0.0f;
+    m_pitchVel = 0.0f;
+    m_yaw = 0.0f;
+    m_yawVel = 0.0f;
 }
 
 bool Battleship::isSafeSpeed() const {
-    return std::abs(m_vx) <= SAFE_MAX_VX && m_vy <= SAFE_MAX_VY && m_vy >= -10.0f * FT2M; // [m/s]
+    float horizSpeed = std::sqrt(m_vx * m_vx + m_vz * m_vz);
+    return horizSpeed <= SAFE_MAX_VX && m_vy <= SAFE_MAX_VY && m_vy >= -10.0f * FT2M; // [m/s]
 }
 
 bool Battleship::isSafeAngle() const {
-    float deg = std::abs(m_angle * RAD2DEG); // [deg]
+    float tiltRad = std::sqrt(m_angle * m_angle + m_pitch * m_pitch);
+    float deg = tiltRad * RAD2DEG; // [deg]
     return deg <= SAFE_MAX_ANGLE_DEG;
 }
 
 void Battleship::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
-                    const Terrain& terrain, SoundEngine& sound, bool airBrakeHeld) {
+                        const Terrain& terrain, SoundEngine& sound, bool airBrakeHeld,
+                        float pitchInput, float yawInput) {
     m_impulseBoostActive = false;
     m_forceVectors.clear();
     m_airBrakesActive = m_airBrakesToggled || airBrakeHeld;
@@ -220,12 +396,14 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
     }
 
     if (m_state == BattleshipState::CRASHED) {
-        // Update debris motion
+        // Update 3D debris motion
         for (auto& d : m_debris) {
             d.x1 += d.vx * dt;
             d.y1 += d.vy * dt;
+            d.z1 += d.vz * dt;
             d.x2 += d.vx * dt;
             d.y2 += d.vy * dt;
+            d.z2 += d.vz * dt;
             d.vy += GRAVITY * 0.4f * dt;
             d.angle += d.angularVel * dt;
             d.life -= dt * 0.5f;
@@ -239,8 +417,7 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
         if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
             m_state = BattleshipState::FLYING;
             m_takeoffCooldown = 0.6f;
-            // Impulse ground effect cushion at surface (2x normal ground effect size/strength)
-            static const float IMPULSE_GE_MAX_TOTAL_DV = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V; // [m/s] 26.24 m/s (86.1 ft/s)
+            static const float IMPULSE_GE_MAX_TOTAL_DV = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V; // [m/s] 26.24 m/s
             m_vy = -(IMPULSE_DELTA_V + IMPULSE_GE_MAX_TOTAL_DV);
             m_y += m_vy * dt;
             m_throttleLeft = 1.0f;
@@ -252,8 +429,8 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
             if (!m_unlimitedFuel) {
                 m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG);
             }
-            m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 5.0f * FT2M, 0.0f, -THRUST_PER_ENGINE * 1.5f, {80, 255, 120, 255}, "L.IMP"});
-            m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 5.0f * FT2M, 0.0f, -THRUST_PER_ENGINE * 1.5f, {80, 255, 120, 255}, "R.IMP"});
+            m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -THRUST_PER_ENGINE * 1.5f, 0.0f, {80, 255, 120, 255}, "L.IMP"});
+            m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -THRUST_PER_ENGINE * 1.5f, 0.0f, {80, 255, 120, 255}, "R.IMP"});
             return;
         }
 
@@ -299,21 +476,25 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
                 m_y = m_landedSurfaceY;
                 m_vx = 0.0f;
                 m_vy = 0.0f;
+                m_vz = 0.0f;
                 m_angle = 0.0f;
                 m_angularVel = 0.0f;
+                m_pitch = 0.0f;
+                m_pitchVel = 0.0f;
+                m_yawVel = 0.0f;
 
                 // Record static equilibrium force vectors while resting on pad
-                m_forceVectors.push_back({m_x, m_y, 0.0f, GRAVITY, {195, 140, 255, 220}, "GRAV"});
+                m_forceVectors.push_back({m_x, m_y, m_z, 0.0f, GRAVITY, 0.0f, {195, 140, 255, 220}, "GRAV"});
                 if (leftThrust > 0.1f) {
-                    m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 5.0f * FT2M, 0.0f, -leftThrust, {80, 255, 120, 255}, "L.THR"});
+                    m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -leftThrust, 0.0f, {80, 255, 120, 255}, "L.THR"});
                 }
                 if (rightThrust > 0.1f) {
-                    m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 5.0f * FT2M, 0.0f, -rightThrust, {80, 255, 120, 255}, "R.THR"});
+                    m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -rightThrust, 0.0f, {80, 255, 120, 255}, "R.THR"});
                 }
                 float padNormalPerSkid = std::max(0.0f, (GRAVITY - totalThrustAccel) * 0.5f);
                 if (padNormalPerSkid > 0.1f) {
-                    m_forceVectors.push_back({m_x - 18.0f * FT2M, m_y + 12.0f * FT2M, 0.0f, -padNormalPerSkid, {160, 230, 180, 220}, "PAD.L"});
-                    m_forceVectors.push_back({m_x + 18.0f * FT2M, m_y + 12.0f * FT2M, 0.0f, -padNormalPerSkid, {160, 230, 180, 220}, "PAD.R"});
+                    m_forceVectors.push_back({m_x - 18.0f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.L"});
+                    m_forceVectors.push_back({m_x + 18.0f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.R"});
                 }
                 return;
             }
@@ -326,45 +507,47 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
     if (m_impactCooldown > 0.0f) m_impactCooldown -= dt;
     if (m_impactFlashTimer > 0.0f) m_impactFlashTimer -= dt;
 
-    // Flying physics
-    updatePhysics(dt, throttleLeft, throttleRight, rotateInput, abortTriggered, boostTriggered, terrain, sound);
+    // 3D Flying physics
+    updatePhysics(dt, throttleLeft, throttleRight, rotateInput, pitchInput, yawInput,
+                  abortTriggered, boostTriggered, terrain, sound);
 
-    // Thruster & hover particle debris animation and bounce physics
+    // Thruster & hover particle debris animation and 3D bounce physics
     spawnThrusterParticles(dt);
     spawnHoverParticles(dt);
     updateThrusterParticles(dt, terrain);
 
-    // Collision check against terrain
+    // 3D Collision check against terrain
     checkTerrainCollision(terrain, sound);
 }
 
 void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput,
-                           bool abortTriggered, bool boostTriggered,
-                           const Terrain& terrain, SoundEngine& sound) {
+                               float pitchInput, float yawInput,
+                               bool abortTriggered, bool boostTriggered,
+                               const Terrain& terrain, SoundEngine& sound) {
     // Check abort condition
     if (abortTriggered && !m_abortActive && (m_unlimitedFuel || m_fuel > 20.0f * LB2KG)) {
         m_abortActive = true;
         m_abortTimer = 0.85f; // [s] Abort retro burn duration
         if (!m_unlimitedFuel) {
-            m_fuel = std::max(0.0f, m_fuel - 80.0f * LB2KG); // [kg] Abort fuel penalty: 36.29 kg (converted from 80.0 lb)
+            m_fuel = std::max(0.0f, m_fuel - 80.0f * LB2KG); // [kg] Abort fuel penalty: 36.29 kg
         }
         sound.playBeep(1200.0f, 0.2f); // [Hz], [s]
     }
 
-    float rawThrottleLeft = throttleLeft;   // [0.0 - 1.0, dimensionless]
-    float rawThrottleRight = throttleRight; // [0.0 - 1.0, dimensionless]
-    float appliedRotate = rotateInput;      // [-1.0 to +1.0, dimensionless]
+    float rawThrottleLeft = throttleLeft;
+    float rawThrottleRight = throttleRight;
+    float appliedRotate = rotateInput;
+    float appliedPitch  = pitchInput;
+    float appliedYaw    = yawInput;
 
-    // Impulse Thruster one-frame boost via main thrusters
+    // Impulse Thruster one-frame boost via main thrusters along 3D hull vertical axis (0, -1, 0)
     if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
         m_impulseBoostActive = true;
-        // The main thruster direction is along the craft's longitudinal axis: (sin(angle), -cos(angle))
-        float thrustDirX = std::sin(m_angle);
-        float thrustDirY = -std::cos(m_angle);
+        Vec3 thrustDir = localToWorldDir({0.0f, -1.0f, 0.0f});
 
-        // Impulse magnitude: 62.48 m/s (205 ft/s) - decreased 2x
-        m_vx += thrustDirX * IMPULSE_DELTA_V;
-        m_vy += thrustDirY * IMPULSE_DELTA_V;
+        m_vx += thrustDir.x * IMPULSE_DELTA_V;
+        m_vy += thrustDir.y * IMPULSE_DELTA_V;
+        m_vz += thrustDir.z * IMPULSE_DELTA_V;
 
         rawThrottleLeft = 1.0f;
         rawThrottleRight = 1.0f;
@@ -373,17 +556,20 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
         sound.playImpulseBoost();
 
         if (!m_unlimitedFuel) {
-            m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG); // [kg] Propellant cost
+            m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG);
         }
     }
 
     if (m_abortActive) {
-        m_abortTimer -= dt; // [s]
-        rawThrottleLeft = 1.0f; // Max thrust on both engines
+        m_abortTimer -= dt;
+        rawThrottleLeft = 1.0f;
         rawThrottleRight = 1.0f;
-        // Right the battleship towards 0 angle using PD attitude control to cancel angular momentum
-        float targetTorque = -m_angle * 3.5f - m_angularVel * 2.2f; // [rad/s^2]
-        appliedRotate = std::clamp(targetTorque, -1.0f, 1.0f);
+        // Right the battleship towards 0 roll & 0 pitch using 3D PD attitude control
+        float targetRollTorque  = -m_angle * 3.5f - m_angularVel * 2.2f;
+        float targetPitchTorque = -m_pitch * 3.5f - m_pitchVel * 2.2f;
+        appliedRotate = std::clamp(targetRollTorque, -1.0f, 1.0f);
+        appliedPitch  = std::clamp(targetPitchTorque, -1.0f, 1.0f);
+        appliedYaw    = std::clamp(-m_yawVel * 2.0f, -1.0f, 1.0f);
 
         if (m_abortTimer <= 0.0f) {
             m_abortActive = false;
@@ -392,21 +578,23 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
     // Out of fuel check
     if (!m_unlimitedFuel && m_fuel <= 0.0f) {
-        m_fuel = 0.0f; // [kg]
+        m_fuel = 0.0f;
         rawThrottleLeft = 0.0f;
         rawThrottleRight = 0.0f;
         appliedRotate = 0.0f;
+        appliedPitch = 0.0f;
+        appliedYaw = 0.0f;
     }
 
-    // Slightly exponential thrust response curve (pow 1.6) for precision low-end feathering and progressive power
-    float appliedThrottleLeft = applyThrustCurve(rawThrottleLeft);   // [0.0 - 1.0, dimensionless]
-    float appliedThrottleRight = applyThrustCurve(rawThrottleRight); // [0.0 - 1.0, dimensionless]
+    // Slightly exponential thrust response curve (pow 1.6)
+    float appliedThrottleLeft = applyThrustCurve(rawThrottleLeft);
+    float appliedThrottleRight = applyThrustCurve(rawThrottleRight);
 
     // Burn main engine fuel
-    float totalThrottle = appliedThrottleLeft + appliedThrottleRight; // [0.0 - 2.0, dimensionless]
+    float totalThrottle = appliedThrottleLeft + appliedThrottleRight;
     if (!m_unlimitedFuel && totalThrottle > 0.0f && m_fuel > 0.0f) {
-        float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt; // [kg]
-        m_fuel = std::max(0.0f, m_fuel - fuelUsed);                    // [kg]
+        float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt;
+        m_fuel = std::max(0.0f, m_fuel - fuelUsed);
     }
     m_throttleLeft = appliedThrottleLeft;
     m_throttleRight = appliedThrottleRight;
@@ -414,210 +602,242 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     // Continuous engine sound driven by total thrust
     sound.setThrust(std::clamp(totalThrottle * 0.6f, 0.0f, 1.0f));
 
-    // ── Rigid-Body Thruster Force & Torque Accumulation ──────────────────────
-    // Every thruster on the hull imparts both a linear force on the center of mass
-    // and a rotational torque computed from its exact hull mounting coordinates:
-    //   tau = r_x * F_y - r_y * F_x,   alpha = tau / HULL_INERTIA
-    float totalWorldAx = 0.0f;      // [m/s^2]
-    float totalWorldAy = GRAVITY;   // [m/s^2]
-    float totalAngularAccel = 0.0f; // [rad/s^2]
+    // ── 3D Rigid-Body Thruster Force & Torque Accumulation ───────────────────
+    Vec3 totalWorldA{0.0f, GRAVITY, 0.0f};
+    float totalRollAccel  = 0.0f;
+    float totalPitchAccel = 0.0f;
+    float totalYawAccel   = 0.0f;
 
-    // Gravity acts at center of mass (m_x, m_y)
-    m_forceVectors.push_back({m_x, m_y, 0.0f, GRAVITY, {195, 140, 255, 220}, "GRAV"});
+    // Gravity acts at center of mass (m_x, m_y, m_z)
+    m_forceVectors.push_back({m_x, m_y, m_z, 0.0f, GRAVITY, 0.0f, {195, 140, 255, 220}, "GRAV"});
 
-    // 1. Port & Starboard Main Thrusters mounted at local (-5.5 ft, +5.0 ft) and (+5.5 ft, +5.0 ft)
-    float diffThrust = appliedThrottleLeft - appliedThrottleRight; // [-1.0 to +1.0, dimensionless]
+    // 1. Port & Starboard Main Thrusters mounted at local (-5.5 ft, +5.0 ft, 0) and (+5.5 ft, +5.0 ft, 0)
+    float diffThrust = appliedThrottleLeft - appliedThrottleRight;
     if (appliedThrottleLeft > 0.0f) {
-        applyForceAtLocalPoint(-5.5f * FT2M, 5.0f * FT2M,
-                               0.0f, -appliedThrottleLeft * THRUST_PER_ENGINE,
-                               totalWorldAx, totalWorldAy, totalAngularAccel,
-                               "L.THR", {80, 255, 120, 255});
+        applyForceAtLocalPoint3D({-5.5f * FT2M, 5.0f * FT2M, 0.0f},
+                                 {0.0f, -appliedThrottleLeft * THRUST_PER_ENGINE, 0.0f},
+                                 totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                 "L.THR", {80, 255, 120, 255});
     }
     if (appliedThrottleRight > 0.0f) {
-        applyForceAtLocalPoint(5.5f * FT2M, 5.0f * FT2M,
-                               0.0f, -appliedThrottleRight * THRUST_PER_ENGINE,
-                               totalWorldAx, totalWorldAy, totalAngularAccel,
-                               "R.THR", {80, 255, 120, 255});
+        applyForceAtLocalPoint3D({5.5f * FT2M, 5.0f * FT2M, 0.0f},
+                                 {0.0f, -appliedThrottleRight * THRUST_PER_ENGINE, 0.0f},
+                                 totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                 "R.THR", {80, 255, 120, 255});
     }
 
-    // 2. Port & Starboard RCS Attitude Thrusters mounted on upper hull flanks at (-14.0 ft, -8.0 ft) and (+14.0 ft, -8.0 ft)
-    //    - Turning right (appliedRotate > 0): Port RCS thruster fires leftward exhaust, exerting a +X local force on the upper hull.
-    //      Torque: tau = (-14 ft)*(0) - (-8 ft)*(+F_rcs) > 0 (clockwise rotation) + rightward linear thrust on ship!
-    //    - Turning left (appliedRotate < 0): Starboard RCS thruster fires rightward exhaust, exerting a -X local force on the upper hull.
-    //      Torque: tau = (+14 ft)*(0) - (-8 ft)*(-F_rcs) < 0 (counter-clockwise rotation) + leftward linear thrust on ship!
+    // 2. Port & Starboard Roll RCS Attitude Thrusters at (-14.0 ft, -8.0 ft, 0) and (+14.0 ft, -8.0 ft, 0)
     if (std::abs(appliedRotate) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        float rcsLocalForceX = appliedRotate * RCS_THRUST_ACCEL; // [m/s^2]
+        float rcsLocalForceX = appliedRotate * RCS_THRUST_ACCEL;
         if (appliedRotate > 0.05f) {
-            applyForceAtLocalPoint(-14.0f * FT2M, -8.0f * FT2M,
-                                   rcsLocalForceX, 0.0f,
-                                   totalWorldAx, totalWorldAy, totalAngularAccel,
-                                   "RCS.L", {255, 135, 70, 255});
-            m_rcsPuffLeft = 0.1f; // [s]
+            applyForceAtLocalPoint3D({-14.0f * FT2M, -8.0f * FT2M, 0.0f},
+                                     {rcsLocalForceX, 0.0f, 0.0f},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.L", {255, 135, 70, 255});
+            m_rcsPuffLeft = 0.1f;
         } else if (appliedRotate < -0.05f) {
-            applyForceAtLocalPoint(14.0f * FT2M, -8.0f * FT2M,
-                                   rcsLocalForceX, 0.0f,
-                                   totalWorldAx, totalWorldAy, totalAngularAccel,
-                                   "RCS.R", {255, 135, 70, 255});
-            m_rcsPuffRight = 0.1f; // [s]
+            applyForceAtLocalPoint3D({14.0f * FT2M, -8.0f * FT2M, 0.0f},
+                                     {rcsLocalForceX, 0.0f, 0.0f},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.R", {255, 135, 70, 255});
+            m_rcsPuffRight = 0.1f;
         }
         sound.playRCS();
 
-        // Burn RCS fuel
         if (!m_unlimitedFuel) {
-            float rcsFuel = std::abs(appliedRotate) * RCS_FUEL_BURN_RATE * dt; // [kg]
-            m_fuel = std::max(0.0f, m_fuel - rcsFuel);                         // [kg]
+            float rcsFuel = std::abs(appliedRotate) * RCS_FUEL_BURN_RATE * dt;
+            m_fuel = std::max(0.0f, m_fuel - rcsFuel);
         }
     }
 
-    // 3. Automatic Ground Effect Hover Thrusters mounted on ventral outriggers at (-14.5 ft, +10.5 ft) and (+14.5 ft, +10.5 ft)
-    updateHoverThrusters(dt, appliedRotate, diffThrust, terrain, sound,
-                         totalWorldAx, totalWorldAy, totalAngularAccel);
+    // 2b. Fore & Aft Pitch RCS Attitude Thrusters mounted at (0, -8.0 ft, -11.0 ft) and (0, -8.0 ft, +11.0 ft)
+    if (std::abs(appliedPitch) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        float rcsLocalForceZ = appliedPitch * RCS_THRUST_ACCEL;
+        if (appliedPitch > 0.05f) {
+            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, -11.0f * FT2M},
+                                     {0.0f, 0.0f, rcsLocalForceZ},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.A", {255, 165, 70, 255});
+            m_rcsPuffAft = 0.1f;
+        } else if (appliedPitch < -0.05f) {
+            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, 11.0f * FT2M},
+                                     {0.0f, 0.0f, rcsLocalForceZ},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.F", {255, 165, 70, 255});
+            m_rcsPuffFore = 0.1f;
+        }
+        sound.playRCS();
 
-    // Integrate angular velocity & angle (unclamped angular velocity)
-    m_angularVel += totalAngularAccel * dt;                                     // [rad/s]
-    m_angle += m_angularVel * dt;                                               // [rad]
+        if (!m_unlimitedFuel) {
+            float rcsFuel = std::abs(appliedPitch) * RCS_FUEL_BURN_RATE * dt;
+            m_fuel = std::max(0.0f, m_fuel - rcsFuel);
+        }
+    }
 
-    // Wrap angle to [-PI, PI]
-    while (m_angle > 3.14159265f) m_angle -= 6.2831853f;
-    while (m_angle < -3.14159265f) m_angle += 6.2831853f;
+    // 2c. Yaw RCS Thrusters
+    if (std::abs(appliedYaw) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        totalYawAccel += appliedYaw * 2.4f;
+        sound.playRCS();
+    }
 
-    // Integrate linear velocity from accumulated world forces
-    m_vx += totalWorldAx * dt; // [m/s]
-    m_vy += totalWorldAy * dt; // [m/s]
+    // 3. Automatic 3D Ground Effect Hover Thrusters
+    updateHoverThrusters(dt, appliedRotate, appliedPitch, diffThrust, terrain, sound,
+                         totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel);
 
-    // ── Air Brakes: Aerodynamic Drag & Rotational Stabilization ──────────────
-    float dragAccelX = 0.0f;
-    float dragAccelY = 0.0f;
+    // Integrate 3D angular velocities & attitude angles
+    m_angularVel += totalRollAccel * dt;
+    m_pitchVel   += totalPitchAccel * dt;
+    m_yawVel     += totalYawAccel * dt;
+
+    m_angle += m_angularVel * dt;
+    m_pitch += m_pitchVel * dt;
+    m_yaw   += m_yawVel * dt;
+
+    wrapAngleRad(m_angle);
+    wrapAngleRad(m_pitch);
+    wrapAngleRad(m_yaw);
+
+    // Integrate 3D linear velocity from accumulated world forces
+    m_vx += totalWorldA.x * dt;
+    m_vy += totalWorldA.y * dt;
+    m_vz += totalWorldA.z * dt;
+
+    // ── 3D Air Brakes: Aerodynamic Drag & Rotational Stabilization ───────────
+    Vec3 dragAccel{0.0f, 0.0f, 0.0f};
     if (m_airBrakeDeploy > 0.001f) {
-        static const float AIR_BRAKE_LINEAR_DRAG = 0.18f;  // [1/s] Linear aerodynamic damping rate (reduced further)
-        static const float AIR_BRAKE_QUAD_DRAG   = 0.0035f;// [1/m] Quadratic high-speed aerodynamic drag (reduced further)
-        static const float AIR_BRAKE_ANG_DRAG    = 0.35f;  // [1/s] Rotational air-brake damping rate (reduced further)
+        static const float AIR_BRAKE_LINEAR_DRAG = 0.18f;  // [1/s]
+        static const float AIR_BRAKE_QUAD_DRAG   = 0.0035f;// [1/m]
+        static const float AIR_BRAKE_ANG_DRAG    = 0.35f;  // [1/s]
 
-        float preVx = m_vx;
-        float preVy = m_vy;
-        float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy); // [m/s]
-        float dragRate = (AIR_BRAKE_LINEAR_DRAG + AIR_BRAKE_QUAD_DRAG * speed) * m_airBrakeDeploy; // [1/s]
+        Vec3 preV{m_vx, m_vy, m_vz};
+        float speed = preV.length();
+        float dragRate = (AIR_BRAKE_LINEAR_DRAG + AIR_BRAKE_QUAD_DRAG * speed) * m_airBrakeDeploy;
         float atten = 1.0f / (1.0f + dragRate * dt);
         m_vx *= atten;
         m_vy *= atten;
-        m_angularVel *= 1.0f / (1.0f + (AIR_BRAKE_ANG_DRAG * m_airBrakeDeploy) * dt);
+        m_vz *= atten;
+
+        float angAtten = 1.0f / (1.0f + (AIR_BRAKE_ANG_DRAG * m_airBrakeDeploy) * dt);
+        m_angularVel *= angAtten;
+        m_pitchVel   *= angAtten;
+        m_yawVel     *= angAtten;
+
         m_airBrakeDragMagnitude = std::clamp((speed * dragRate) / (50.0f * FT2M), 0.0f, 1.0f);
 
         if (dt > 1e-5f) {
-            dragAccelX = (m_vx - preVx) / dt;
-            dragAccelY = (m_vy - preVy) / dt;
-            if ((dragAccelX * dragAccelX + dragAccelY * dragAccelY) > 0.05f) {
-                m_forceVectors.push_back({m_x, m_y, dragAccelX, dragAccelY, {255, 195, 70, 240}, "DRAG"});
+            dragAccel = (Vec3{m_vx, m_vy, m_vz} - preV) / dt;
+            if (dragAccel.lengthSq() > 0.05f) {
+                m_forceVectors.push_back({m_x, m_y, m_z, dragAccel.x, dragAccel.y, dragAccel.z, {255, 195, 70, 240}, "DRAG"});
             }
         }
     } else {
         m_airBrakeDragMagnitude = 0.0f;
     }
 
-    m_x += m_vx * dt; // [m]
-    m_y += m_vy * dt; // [m]
+    m_x += m_vx * dt;
+    m_y += m_vy * dt;
+    m_z += m_vz * dt;
 
-    // ── Ground Effect: Plume Impingement Ray Casting ──────────────────────────
-    // Each nozzle fires GE_NUM_RAYS exhaust rays in a cone. Each ray that hits
-    // terrain contributes a reflected force along the hit surface normal.
-    // Force scales with throttle and decays exponentially with distance.
-    // Asymmetric hits between left/right nozzles also generate torque.
-    static const int   GE_NUM_RAYS        = 7;                      // [count] Number of rays per nozzle
-    static const float GE_CONE_HALF_ANGLE = 0.5236f;                // [rad] ±30 degrees in radians
-    static const float GE_MAX_DIST        = 180.0f * FT2M;          // [m] Maximum plume reach: 54.864 m (converted from 180.0 ft)
-    static const float GE_FORCE_PER_RAY   = 1.8f * FT2M;            // [m/s^2] Max acceleration per ray: 0.54864 m/s^2 (converted from 1.8 ft/s^2)
-    static const float GE_FALLOFF         = 65.0f * FT2M;           // [m] Exponential decay length: 19.812 m (converted from 65.0 ft)
-    static const float GE_TORQUE_SCALE    = 0.018f / (FT2M * FT2M); // [rad/(m*s^2)] Moment arm scaling for torque: 0.19375 (converted from 0.018)
+    // Keep Z within world depth bounds with soft boundary reflection
+    float maxAbsZ = terrain.getWorldDepth() * 0.48f;
+    if (m_z > maxAbsZ) { m_z = maxAbsZ; m_vz = -std::abs(m_vz) * 0.5f; }
+    if (m_z < -maxAbsZ) { m_z = -maxAbsZ; m_vz = std::abs(m_vz) * 0.5f; }
 
-    // Impulse Thruster Ground Effect: 2x the size (reach and falloff length) of normal thrusters
-    static const int   IMPULSE_GE_NUM_RAYS        = 11;                     // [count] Rays per nozzle for impulse
-    static const float IMPULSE_GE_CONE_HALF_ANGLE = 0.8727f;                // [rad] ±50 degrees wide burst cone
-    static const float IMPULSE_GE_MAX_DIST        = 2.0f * GE_MAX_DIST;    // [m] 2x size reach: 360 ft (109.73 m)
-    static const float IMPULSE_GE_FALLOFF         = 2.0f * GE_FALLOFF;     // [m] 2x size falloff: 130 ft (39.62 m)
-    static const float IMPULSE_GE_MAX_TOTAL_DV    = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V; // [m/s] 26.243 m/s (86.1 ft/s)
-    static const float IMPULSE_GE_DV_PER_RAY      = IMPULSE_GE_MAX_TOTAL_DV / (2.0f * (float)IMPULSE_GE_NUM_RAYS); // [m/s]
+    // ── 3D Ground Effect: Plume Impingement Ray Casting ───────────────────────
+    static const int   GE_NUM_RAYS        = 7;
+    static const float GE_CONE_HALF_ANGLE = 0.5236f;                // [rad] ±30 degrees
+    static const float GE_MAX_DIST        = 180.0f * FT2M;          // [m] 54.864 m
+    static const float GE_FORCE_PER_RAY   = 1.8f * FT2M;            // [m/s^2] 0.54864 m/s^2
+    static const float GE_FALLOFF         = 65.0f * FT2M;           // [m] 19.812 m
+    static const float GE_TORQUE_SCALE    = 0.018f / (FT2M * FT2M); // [rad/(m*s^2)] 0.19375
 
-    // Exhaust direction in world space: battleship local "down" = (-sinA, cosA)
-    // (Verified: at angle=0 this gives (0,+1) = screen-down, matching flame rendering)
-    float cosA = std::cos(m_angle);
-    float sinA = std::sin(m_angle);
-    float exhaustDx = -sinA; // [dimensionless] Direction unit vector X
-    float exhaustDy =  cosA; // [dimensionless] Direction unit vector Y
-    // Perpendicular to exhaust direction (for cone spread)
-    float perpDx =  cosA;    // [dimensionless]
-    float perpDy =  sinA;    // [dimensionless]
+    static const int   IMPULSE_GE_NUM_RAYS        = 11;
+    static const float IMPULSE_GE_CONE_HALF_ANGLE = 0.8727f;                // [rad] ±50 degrees
+    static const float IMPULSE_GE_MAX_DIST        = 2.0f * GE_MAX_DIST;
+    static const float IMPULSE_GE_FALLOFF         = 2.0f * GE_FALLOFF;
+    static const float IMPULSE_GE_MAX_TOTAL_DV    = 2.0f * (25.2f / 120.0f) * IMPULSE_DELTA_V;
+    static const float IMPULSE_GE_DV_PER_RAY      = IMPULSE_GE_MAX_TOTAL_DV / (2.0f * (float)IMPULSE_GE_NUM_RAYS);
 
-    // Two nozzles: left at local (-1.68 m, 1.52 m), right at local (+1.68 m, 1.52 m)
-    struct NozzleInfo { float wx, wy, throttle; }; // wx, wy in [m]
-    NozzleInfo nozzles[2] = {
-        { m_x + (-5.5f * FT2M) * cosA - (5.0f * FT2M) * sinA, // [m]
-          m_y + (-5.5f * FT2M) * sinA + (5.0f * FT2M) * cosA, // [m]
-          appliedThrottleLeft },
-        { m_x + ( 5.5f * FT2M) * cosA - (5.0f * FT2M) * sinA, // [m]
-          m_y + ( 5.5f * FT2M) * sinA + (5.0f * FT2M) * cosA, // [m]
-          appliedThrottleRight }
+    Vec3 exhaustDir = localToWorldDir({0.0f, 1.0f, 0.0f}); // Local down (+Y)
+    Vec3 perpXDir   = localToWorldDir({1.0f, 0.0f, 0.0f}); // Local starboard (+X)
+    Vec3 perpZDir   = localToWorldDir({0.0f, 0.0f, 1.0f}); // Local fore (+Z)
+
+    struct NozzleInfo3D { Vec3 pos; float throttle; };
+    NozzleInfo3D nozzles[2] = {
+        { localToWorldPoint({-5.5f * FT2M, 5.0f * FT2M, 0.0f}), appliedThrottleLeft },
+        { localToWorldPoint({ 5.5f * FT2M, 5.0f * FT2M, 0.0f}), appliedThrottleRight }
     };
 
-    float geAccelX = 0.0f; // [m/s^2]
-    float geAccelY = 0.0f; // [m/s^2]
-    float geTorque = 0.0f; // [rad/s^2]
+    Vec3 geAccel{0.0f, 0.0f, 0.0f};
+    float geTorqueRoll  = 0.0f;
+    float geTorquePitch = 0.0f;
 
     for (const auto& nozzle : nozzles) {
         if (nozzle.throttle < 0.01f) continue;
 
+        // Primary 7-ray lateral fan in the XY roll plane
         for (int r = 0; r < GE_NUM_RAYS; ++r) {
-            // Spread angle: linearly from -halfAngle to +halfAngle across rays
             float spread = (GE_NUM_RAYS > 1)
                 ? GE_CONE_HALF_ANGLE * (2.0f * r / (GE_NUM_RAYS - 1) - 1.0f)
-                : 0.0f; // [rad]
+                : 0.0f;
             float cosS = std::cos(spread);
             float sinS = std::sin(spread);
 
-            // Rotated ray direction (unit vector, since exhaust/perp are orthonormal)
-            float rayDx = exhaustDx * cosS + perpDx * sinS;
-            float rayDy = exhaustDy * cosS + perpDy * sinS;
+            Vec3 rayDir = (exhaustDir * cosS + perpXDir * sinS).normalized();
 
-            Terrain::RayHit hit;
-            if (terrain.castRay(nozzle.wx, nozzle.wy, rayDx, rayDy, GE_MAX_DIST, hit)) {
-                // Exponential decay with distance
+            Terrain::RayHit3D hit;
+            if (terrain.castRay3D(nozzle.pos, rayDir, GE_MAX_DIST, hit)) {
                 float decay = std::exp(-hit.dist / GE_FALLOFF);
-                float accelMag = nozzle.throttle * GE_FORCE_PER_RAY * decay; // [m/s^2]
+                float accelMag = nozzle.throttle * GE_FORCE_PER_RAY * decay;
 
-                // Accumulate force along surface normal (terrain pushes battleship back)
-                geAccelX += accelMag * hit.normalX; // [m/s^2]
-                geAccelY += accelMag * hit.normalY; // [m/s^2]
+                Vec3 f = hit.normal * accelMag;
+                geAccel += f;
 
-                // Torque: lateral (X) force × moment arm from nozzle to CM
-                // Positive torque = clockwise in our convention
-                float armX = nozzle.wx - m_x; // [m]
-                float armY = nozzle.wy - m_y; // [m]
-                // 2D torque = r × F = armX * Fy - armY * Fx
-                geTorque += (armX * accelMag * hit.normalY - armY * accelMag * hit.normalX)
-                            * GE_TORQUE_SCALE; // [rad/s^2]
+                Vec3 arm = nozzle.pos - Vec3{m_x, m_y, m_z};
+                geTorqueRoll  += (arm.x * f.y - arm.y * f.x) * GE_TORQUE_SCALE;
+                geTorquePitch += (arm.z * f.y - arm.y * f.z) * GE_TORQUE_SCALE;
+            }
+        }
+
+        // Additional longitudinal Z-cone rays for 3D pitch & Z-slope ground-effect interaction
+        if (std::abs(m_z) > 1e-3f || std::abs(m_pitch) > 1e-3f || std::abs(m_vz) > 1e-3f) {
+            const float zSpreads[4] = {-0.45f, -0.22f, 0.22f, 0.45f};
+            for (float spZ : zSpreads) {
+                Vec3 rayDir = (exhaustDir * std::cos(spZ) + perpZDir * std::sin(spZ)).normalized();
+                Terrain::RayHit3D hit;
+                if (terrain.castRay3D(nozzle.pos, rayDir, GE_MAX_DIST, hit)) {
+                    float decay = std::exp(-hit.dist / GE_FALLOFF);
+                    float accelMag = nozzle.throttle * (GE_FORCE_PER_RAY * 0.45f) * decay;
+                    Vec3 f = hit.normal * accelMag;
+                    geAccel.z += f.z;
+                    Vec3 arm = nozzle.pos - Vec3{m_x, m_y, m_z};
+                    geTorquePitch += (arm.z * f.y - arm.y * f.z) * GE_TORQUE_SCALE;
+                }
             }
         }
     }
 
-    // Apply continuous ground effect to velocity and rotation
-    m_vx += geAccelX * dt;         // [m/s]
-    m_vy += geAccelY * dt;         // [m/s]
-    m_angularVel += geTorque * dt; // [rad/s]
+    // Apply continuous 3D ground effect to velocity and rotation
+    m_vx += geAccel.x * dt;
+    m_vy += geAccel.y * dt;
+    m_vz += geAccel.z * dt;
+    m_angularVel += geTorqueRoll * dt;
+    m_pitchVel   += geTorquePitch * dt;
 
-    if ((geAccelX * geAccelX + geAccelY * geAccelY) > 0.05f) {
-        m_forceVectors.push_back({m_x, m_y + 8.0f * FT2M, geAccelX, geAccelY, {120, 225, 255, 235}, "G.EFF"});
+    if (geAccel.lengthSq() > 0.05f) {
+        m_forceVectors.push_back({m_x, m_y + 8.0f * FT2M, m_z, geAccel.x, geAccel.y, geAccel.z, {120, 225, 255, 235}, "G.EFF"});
     }
 
-    // Record net acceleration vector at center of mass
-    float netAx = totalWorldAx + dragAccelX + geAccelX;
-    float netAy = totalWorldAy + dragAccelY + geAccelY;
-    if ((netAx * netAx + netAy * netAy) > 0.05f) {
-        m_forceVectors.push_back({m_x, m_y, netAx, netAy, {255, 255, 255, 245}, "NET"});
+    // Record net 3D acceleration vector at center of mass
+    Vec3 netA = totalWorldA + dragAccel + geAccel;
+    if (netA.lengthSq() > 0.05f) {
+        m_forceVectors.push_back({m_x, m_y, m_z, netA.x, netA.y, netA.z, {255, 255, 255, 245}, "NET"});
     }
 
-    // ── Instantaneous Impulse Thruster Ground Effect ──────────────────────────
-    float impulseGeDeltaVx = 0.0f; // [m/s]
-    float impulseGeDeltaVy = 0.0f; // [m/s]
-    float impulseGeTorque   = 0.0f; // [rad/s]
+    // ── Instantaneous Impulse Thruster 3D Ground Effect ───────────────────────
+    Vec3 impulseGeDeltaV{0.0f, 0.0f, 0.0f};
+    float impulseGeTorqueRoll  = 0.0f;
+    float impulseGeTorquePitch = 0.0f;
 
     if (m_impulseBoostActive) {
         for (const auto& nozzle : nozzles) {
@@ -628,39 +848,37 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
                 float cosS = std::cos(spread);
                 float sinS = std::sin(spread);
 
-                float rayDx = exhaustDx * cosS + perpDx * sinS;
-                float rayDy = exhaustDy * cosS + perpDy * sinS;
+                Vec3 rayDir = (exhaustDir * cosS + perpXDir * sinS).normalized();
 
-                Terrain::RayHit hit;
-                if (terrain.castRay(nozzle.wx, nozzle.wy, rayDx, rayDy, IMPULSE_GE_MAX_DIST, hit)) {
-                    // Exponential decay with distance over 2x size reach
+                Terrain::RayHit3D hit;
+                if (terrain.castRay3D(nozzle.pos, rayDir, IMPULSE_GE_MAX_DIST, hit)) {
                     float decay = std::exp(-hit.dist / IMPULSE_GE_FALLOFF);
-                    float dvMag = IMPULSE_GE_DV_PER_RAY * decay; // [m/s]
+                    float dvMag = IMPULSE_GE_DV_PER_RAY * decay;
 
-                    // Terrain surface normal repels the ship
-                    impulseGeDeltaVx += dvMag * hit.normalX;
-                    impulseGeDeltaVy += dvMag * hit.normalY;
+                    Vec3 dv = hit.normal * dvMag;
+                    impulseGeDeltaV += dv;
 
-                    float armX = nozzle.wx - m_x;
-                    float armY = nozzle.wy - m_y;
-                    impulseGeTorque += (armX * dvMag * hit.normalY - armY * dvMag * hit.normalX)
-                                       * GE_TORQUE_SCALE;
+                    Vec3 arm = nozzle.pos - Vec3{m_x, m_y, m_z};
+                    impulseGeTorqueRoll  += (arm.x * dv.y - arm.y * dv.x) * GE_TORQUE_SCALE;
+                    impulseGeTorquePitch += (arm.z * dv.y - arm.y * dv.z) * GE_TORQUE_SCALE;
                 }
             }
         }
 
-        m_vx += impulseGeDeltaVx;
-        m_vy += impulseGeDeltaVy;
-        m_angularVel += impulseGeTorque;
+        m_vx += impulseGeDeltaV.x;
+        m_vy += impulseGeDeltaV.y;
+        m_vz += impulseGeDeltaV.z;
+        m_angularVel += impulseGeTorqueRoll;
+        m_pitchVel   += impulseGeTorquePitch;
     }
 
-    // Store normalized magnitude for HUD (max theoretical: 2 engines × 7 rays × GE_FORCE_PER_RAY)
-    static const float GE_MAX_TOTAL = 2.0f * GE_NUM_RAYS * GE_FORCE_PER_RAY; // [m/s^2]
-    float geMag = std::sqrt(geAccelX * geAccelX + geAccelY * geAccelY);       // [m/s^2]
-    m_groundEffectMagnitude = std::min(1.0f, geMag / GE_MAX_TOTAL);           // [0.0 - 1.0, dimensionless]
+    // Store normalized magnitude for HUD
+    static const float GE_MAX_TOTAL = 2.0f * GE_NUM_RAYS * GE_FORCE_PER_RAY;
+    float geMag = geAccel.length();
+    m_groundEffectMagnitude = std::min(1.0f, geMag / GE_MAX_TOTAL);
 
     if (m_impulseBoostActive) {
-        float impGeMag = std::sqrt(impulseGeDeltaVx * impulseGeDeltaVx + impulseGeDeltaVy * impulseGeDeltaVy);
+        float impGeMag = impulseGeDeltaV.length();
         if (impGeMag > 0.05f) {
             m_groundEffectMagnitude = std::max(m_groundEffectMagnitude, std::min(1.0f, impGeMag / (IMPULSE_GE_MAX_TOTAL_DV * 0.35f)));
         }
@@ -668,84 +886,94 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
     if (m_hoverThrustersEnabled && m_hoverThrusterThrottle > 0.01f) {
         m_groundEffectMagnitude = std::max(m_groundEffectMagnitude, m_hoverThrusterThrottle);
-        float totalThrottle = m_throttleLeft + m_throttleRight;
-        sound.setThrust(std::clamp(std::max(totalThrottle * 0.6f, m_hoverThrusterThrottle * 0.35f), 0.0f, 1.0f));
+        float totThr = m_throttleLeft + m_throttleRight;
+        sound.setThrust(std::clamp(std::max(totThr * 0.6f, m_hoverThrusterThrottle * 0.35f), 0.0f, 1.0f));
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
     // Decay RCS puffs
-    if (m_rcsPuffLeft > 0.0f) m_rcsPuffLeft -= dt;   // [s]
-    if (m_rcsPuffRight > 0.0f) m_rcsPuffRight -= dt; // [s]
+    if (m_rcsPuffLeft > 0.0f)  m_rcsPuffLeft -= dt;
+    if (m_rcsPuffRight > 0.0f) m_rcsPuffRight -= dt;
+    if (m_rcsPuffFore > 0.0f)  m_rcsPuffFore -= dt;
+    if (m_rcsPuffAft > 0.0f)   m_rcsPuffAft -= dt;
 
     // Flame flicker animation
-    m_flameFlicker += dt * 30.0f; // [rad]
+    m_flameFlicker += dt * 30.0f;
 }
 
-void Battleship::updateHoverThrusters(float dt, float rotateInput, float diffThrust,
+void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchInput, float diffThrust,
                                       const Terrain& terrain, SoundEngine& /*sound*/,
-                                      float& accumWorldAx, float& accumWorldAy,
-                                      float& accumAngularAccel) {
+                                      Vec3& accumWorldA, float& accumRollAccel,
+                                      float& accumPitchAccel, float& accumYawAccel) {
     if (!m_hoverThrustersEnabled || (!m_unlimitedFuel && m_fuel <= 0.0f)) {
         m_hoverThrusterThrottle = 0.0f;
         return;
     }
 
-    // Sample terrain surface beneath center, port/starboard skids, and velocity lookahead points
+    // Sample 3D terrain surface beneath center, port/starboard/fore/aft skids, and 3D velocity lookahead points
     const float lookTimes[4] = { 0.30f, 0.65f, 1.10f, 1.55f };
-    float minSurfY = terrain.getSurfaceHeightAt(m_x);
-    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 22.0f * FT2M));
-    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 22.0f * FT2M));
-    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 11.0f * FT2M));
-    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 11.0f * FT2M));
+    float minSurfY = terrain.getSurfaceHeightAt(m_x, m_z);
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 22.0f * FT2M, m_z));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 22.0f * FT2M, m_z));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x - 11.0f * FT2M, m_z));
+    minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + 11.0f * FT2M, m_z));
+    if (std::abs(m_z) > 1e-3f || std::abs(m_vz) > 1e-3f) {
+        minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x, m_z - 15.0f * FT2M));
+        minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x, m_z + 15.0f * FT2M));
+    }
 
     for (float tLook : lookTimes) {
         float lookDx = std::clamp(m_vx * tLook, -110.0f * FT2M, 110.0f * FT2M);
-        minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + lookDx));
+        float lookDz = std::clamp(m_vz * tLook, -110.0f * FT2M, 110.0f * FT2M);
+        minSurfY = std::min(minSurfY, terrain.getSurfaceHeightAt(m_x + lookDx, m_z + lookDz));
     }
 
-    // Effective vertical clearance from lowest skid datum (m_y + 12 ft) to highest local/upcoming terrain
     float clearance = minSurfY - (m_y + 12.0f * FT2M); // [m]
 
-    // Local & forward terrain slope for contour-following velocity tracking while skating horizontally
-    float surfLeft  = terrain.getSurfaceHeightAt(m_x - 15.0f * FT2M);
-    float surfRight = terrain.getSurfaceHeightAt(m_x + 15.0f * FT2M);
-    float localSlope = (surfRight - surfLeft) / (30.0f * FT2M);
+    // Local & forward 3D terrain slope for contour-following velocity tracking while skating in (X, Z)
+    float surfLeft  = terrain.getSurfaceHeightAt(m_x - 15.0f * FT2M, m_z);
+    float surfRight = terrain.getSurfaceHeightAt(m_x + 15.0f * FT2M, m_z);
+    float localSlopeX = (surfRight - surfLeft) / (30.0f * FT2M);
 
-    // Also measure forward slope in direction of horizontal velocity
     float forwardDx = (m_vx >= 0.0f) ? 35.0f * FT2M : -35.0f * FT2M;
-    float forwardSlope = (terrain.getSurfaceHeightAt(m_x + forwardDx) - terrain.getSurfaceHeightAt(m_x)) / forwardDx;
+    float forwardSlopeX = (terrain.getSurfaceHeightAt(m_x + forwardDx, m_z) - terrain.getSurfaceHeightAt(m_x, m_z)) / forwardDx;
 
-    // Use whichever slope demands more upward climb rate (more negative terrainVy)
-    float terrainVyLocal = localSlope * m_vx;
-    float terrainVyForward = forwardSlope * m_vx;
+    float terrainVyZ = 0.0f;
+    if (std::abs(m_vz) > 0.05f) {
+        float forwardDz = (m_vz >= 0.0f) ? 35.0f * FT2M : -35.0f * FT2M;
+        float forwardSlopeZ = (terrain.getSurfaceHeightAt(m_x, m_z + forwardDz) - terrain.getSurfaceHeightAt(m_x, m_z)) / forwardDz;
+        terrainVyZ = forwardSlopeZ * m_vz;
+    }
+
+    float terrainVyLocal = localSlopeX * m_vx + terrainVyZ;
+    float terrainVyForward = forwardSlopeX * m_vx + terrainVyZ;
     float terrainVy = std::min(terrainVyLocal, terrainVyForward); // [m/s] (<0 when skating uphill)
-    float currentVy = m_vy + accumWorldAy * dt;
-    float relVy = currentVy - terrainVy; // [m/s] Approach velocity toward terrain contour (>0 is approaching terrain)
+    float currentVy = m_vy + accumWorldA.y * dt;
+    float relVy = currentVy - terrainVy;
 
     if (clearance < HOVER_MAX_ALT) {
-        float altError = HOVER_TARGET_ALT - clearance; // [m] (>0 when below target hover altitude)
+        float altError = HOVER_TARGET_ALT - clearance;
 
         // Critically-damped PD + gravity feedforward modulation law
-        float desiredUpAccel = GRAVITY + 2.6f * altError + 3.6f * relVy; // [m/s^2]
+        float desiredUpAccel = GRAVITY + 2.6f * altError + 3.6f * relVy;
 
-        // Kinematic braking check when approaching terrain inside the ground-effect envelope:
-        // Net maximum deceleration against gravity is (HOVER_MAX_ACCEL - GRAVITY) = 5.4864 m/s^2.
         if (relVy > 0.5f && clearance > HOVER_TARGET_ALT) {
             float netMaxDecel = HOVER_MAX_ACCEL - GRAVITY;
-            float stopDist = (relVy * relVy) / (2.0f * netMaxDecel); // [m]
+            float stopDist = (relVy * relVy) / (2.0f * netMaxDecel);
             if (clearance - HOVER_TARGET_ALT <= stopDist * 1.20f + 2.0f) {
                 desiredUpAccel = std::max(desiredUpAccel, HOVER_MAX_ACCEL);
             }
         }
 
         m_hoverThrusterThrottle = std::clamp(desiredUpAccel / HOVER_MAX_ACCEL, 0.0f, 1.0f);
-        float hoverUpAccel = m_hoverThrusterThrottle * HOVER_MAX_ACCEL; // [m/s^2]
+        float hoverUpAccel = m_hoverThrusterThrottle * HOVER_MAX_ACCEL;
 
-        // Ground-cushion attitude stabilization via differential port/starboard ventral hover thrusters
-        // mounted at local (-14.5 ft, +10.5 ft) and (+14.5 ft, +10.5 ft)
-        float stabTorque = 0.0f;
+        // Attitude stabilization in Roll and Pitch
+        float stabTorqueRoll = 0.0f;
         if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
-            stabTorque = (-3.2f * m_angle - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
+            stabTorqueRoll = (-3.2f * m_angle - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
+        }
+        if (std::abs(pitchInput) < 0.05f) {
+            accumPitchAccel += (-3.2f * m_pitch - 2.6f * m_pitchVel) * m_hoverThrusterThrottle;
         }
 
         float cosA = std::cos(m_angle);
@@ -753,26 +981,25 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float diffThr
         float rx = 14.5f * FT2M;
         float ry = 10.5f * FT2M;
 
-        // Solve port (a_L) and starboard (a_R) world-upward hover accelerations so that:
-        //   a_L + a_R = hoverUpAccel
-        //   tau / HULL_INERTIA = stabTorque
         float deltaA = 0.0f;
         if (std::abs(cosA) > 0.25f) {
-            deltaA = (HULL_INERTIA * stabTorque - hoverUpAccel * ry * sinA) / (2.0f * rx * cosA);
+            deltaA = (HULL_INERTIA * stabTorqueRoll - hoverUpAccel * ry * sinA) / (2.0f * rx * cosA);
         }
         float hoverLeftUp  = 0.5f * hoverUpAccel + deltaA;
         float hoverRightUp = 0.5f * hoverUpAccel - deltaA;
 
-        // Convert world-upward nozzle force (0, -hoverUp) to local hull frame (-hoverUp * sinA, -hoverUp * cosA)
-        // and apply at exact outrigger coordinates (-14.5 ft, +10.5 ft) and (+14.5 ft, +10.5 ft)
-        applyForceAtLocalPoint(-rx, ry,
-                               -hoverLeftUp * sinA, -hoverLeftUp * cosA,
-                               accumWorldAx, accumWorldAy, accumAngularAccel,
-                               "HOV.L", {60, 235, 255, 255});
-        applyForceAtLocalPoint(rx, ry,
-                               -hoverRightUp * sinA, -hoverRightUp * cosA,
-                               accumWorldAx, accumWorldAy, accumAngularAccel,
-                               "HOV.R", {60, 235, 255, 255});
+        // Convert world-upward nozzle force (0, -hoverUp, 0) to local hull frame
+        float cP = std::cos(m_pitch);
+        float sP = std::sin(m_pitch);
+        Vec3 localLeftF  = {-hoverLeftUp * sinA,  -hoverLeftUp * cosA * cP,  hoverLeftUp * cosA * sP};
+        Vec3 localRightF = {-hoverRightUp * sinA, -hoverRightUp * cosA * cP, hoverRightUp * cosA * sP};
+
+        applyForceAtLocalPoint3D({-rx, ry, 0.0f}, localLeftF,
+                                 accumWorldA, accumRollAccel, accumPitchAccel, accumYawAccel,
+                                 "HOV.L", {60, 235, 255, 255});
+        applyForceAtLocalPoint3D({ rx, ry, 0.0f}, localRightF,
+                                 accumWorldA, accumRollAccel, accumPitchAccel, accumYawAccel,
+                                 "HOV.R", {60, 235, 255, 255});
 
         // Consume hover propellant when unlimited fuel is off
         if (!m_unlimitedFuel && m_hoverThrusterThrottle > 0.0f) {
@@ -789,44 +1016,28 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
         return;
     }
 
-    float cosA = std::cos(m_angle);
-    float sinA = std::sin(m_angle);
-
-    // Transform local craft points to world points
-    auto toWorld = [&](float lx, float ly, float& wx, float& wy) {
-        wx = m_x + (lx * cosA - ly * sinA); // [m]
-        wy = m_y + (lx * sinA + ly * cosA); // [m]
+    // 3D Test points on footpads, lower chassis, engine nozzles, and cabin top
+    std::vector<Vec3> testPoints = {
+        {-18.0f * FT2M, 12.0f * FT2M,  0.0f}, { 18.0f * FT2M, 12.0f * FT2M,  0.0f}, // Center footpads
+        {-18.0f * FT2M, 12.0f * FT2M, -9.0f * FT2M}, { 18.0f * FT2M, 12.0f * FT2M,  9.0f * FT2M}, // 3D Fore/Aft skid tips
+        {-14.0f * FT2M, -4.0f * FT2M,  0.0f}, { 14.0f * FT2M, -4.0f * FT2M,  0.0f}, // Mid body
+        {-5.5f * FT2M,   5.0f * FT2M,  0.0f}, {  5.5f * FT2M,  5.0f * FT2M,  0.0f}, // Left & Right nozzles
+        { 0.0f * FT2M, -21.0f * FT2M,  0.0f}                                        // Cabin top
     };
 
-    // Check footpads specifically [m]
-    float leftPadWx, leftPadWy;
-    float rightPadWx, rightPadWy;
-    toWorld(-18.0f * FT2M, 12.0f * FT2M, leftPadWx, leftPadWy);
-    toWorld(18.0f * FT2M, 12.0f * FT2M, rightPadWx, rightPadWy);
-
-    // Check collision for key segments of the battleship against terrain [m]
     bool anyCollision = false;
     bool touchedPad = false;
     int padMultiplier = 0;
     float padHitY = 0.0f;
 
-    // Test footpad lines and lower chassis (including both twin engine nozzles) [m]
-    std::vector<std::pair<float, float>> testPoints = {
-        {-18.0f * FT2M, 12.0f * FT2M}, {18.0f * FT2M, 12.0f * FT2M}, // [m] Footpads (-5.49 m, +3.66 m)
-        {-14.0f * FT2M, -4.0f * FT2M}, {14.0f * FT2M, -4.0f * FT2M}, // [m] Mid body
-        {-5.5f * FT2M, 5.0f * FT2M},   {5.5f * FT2M, 5.0f * FT2M},   // [m] Left & Right nozzles
-        {0.0f * FT2M, -21.0f * FT2M}                                 // [m] Cabin top (-6.40 m)
-    };
-
     for (size_t i = 1; i < testPoints.size(); ++i) {
-        float wx1, wy1, wx2, wy2;
-        toWorld(testPoints[i-1].first, testPoints[i-1].second, wx1, wy1);
-        toWorld(testPoints[i].first, testPoints[i].second, wx2, wy2);
+        Vec3 w1 = localToWorldPoint(testPoints[i - 1]);
+        Vec3 w2 = localToWorldPoint(testPoints[i]);
 
         bool isPad = false;
         int mult = 0;
         float hY = 0.0f;
-        if (terrain.checkCollision(wx1, wy1, wx2, wy2, isPad, mult, hY)) {
+        if (terrain.checkCollision3D(w1, w2, isPad, mult, hY)) {
             anyCollision = true;
             if (isPad) {
                 touchedPad = true;
@@ -844,54 +1055,59 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
             return;
         }
 
-        // Calculate impact velocity magnitude in [m/s]
-        float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy); // [m/s]
+        // Calculate 3D impact velocity magnitude in [m/s]
+        float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy + m_vz * m_vz);
 
         // Damage is proportional to impact velocity
-        float damageInflicted = std::max(2.5f, speed * DAMAGE_PER_VELOCITY); // [%]
-        m_damage = std::min(100.0f, m_damage + damageInflicted);             // [%]
+        float damageInflicted = std::max(2.5f, speed * DAMAGE_PER_VELOCITY);
+        m_damage = std::min(100.0f, m_damage + damageInflicted);
 
         // Store impact event for controller vibration and UI alerts
         m_lastImpact.occurred = true;
-        m_lastImpact.speed = speed;                      // [m/s]
-        m_lastImpact.damageInflicted = damageInflicted;  // [%]
+        m_lastImpact.speed = speed;
+        m_lastImpact.damageInflicted = damageInflicted;
 
-        // If total damage reaches 100%, vehicle breaks apart into tumbling debris
+        // If total damage reaches 100%, vehicle breaks apart into 3D tumbling debris
         if (m_damage >= 100.0f) {
             triggerCrash(sound);
             return;
         }
 
         // Vehicle survives the impact!
-        // Play crunchy metallic impact sound and trigger flash
         float soundIntensity = std::clamp(speed / (45.0f * FT2M), 0.35f, 1.0f);
         sound.playImpact(soundIntensity);
-        m_impactFlashTimer = 0.25f; // [s]
+        m_impactFlashTimer = 0.25f;
 
-        // Rebound physics: bounce vehicle off terrain surface
+        // 3D Rebound physics: bounce vehicle off terrain surface
         if (m_vy > 0.0f) {
-            m_vy = -std::max(12.0f * FT2M, m_vy * 0.40f); // [m/s]
+            m_vy = -std::max(12.0f * FT2M, m_vy * 0.40f);
         } else {
-            m_vy = -m_vy * 0.40f;                         // [m/s]
+            m_vy = -m_vy * 0.40f;
         }
-        m_vx = -m_vx * 0.35f;                             // [m/s]
+        m_vx = -m_vx * 0.35f;
+        m_vz = -m_vz * 0.35f;
 
         // Angular perturbation from impact
-        m_angularVel = -m_angularVel * 0.35f + ((m_vx >= 0.0f) ? 0.75f : -0.75f); // [rad/s]
+        m_angularVel = -m_angularVel * 0.35f + ((m_vx >= 0.0f) ? 0.75f : -0.75f);
+        m_pitchVel   = -m_pitchVel * 0.35f;
 
         // Push vehicle slightly clear of surface to prevent immediate re-collision
-        m_y -= 6.0f * FT2M;       // [m] 1.83 m pushback
-        m_impactCooldown = 0.22f; // [s]
+        m_y -= 6.0f * FT2M;
+        m_impactCooldown = 0.22f;
     }
 }
 
 void Battleship::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
     m_state = BattleshipState::LANDED;
     m_lastPadMultiplier = multiplier;
-    m_vx = 0.0f; // [m/s]
-    m_vy = 0.0f; // [m/s]
-    m_angularVel = 0.0f; // [rad/s]
-    m_angle = 0.0f;      // [rad] Level ship
+    m_vx = 0.0f;
+    m_vy = 0.0f;
+    m_vz = 0.0f;
+    m_angularVel = 0.0f;
+    m_pitchVel = 0.0f;
+    m_yawVel = 0.0f;
+    m_angle = 0.0f;
+    m_pitch = 0.0f;
     m_landedSurfaceY = hitY - 12.0f * FT2M;
     m_y = m_landedSurfaceY;
     sound.playLandFanfare();
@@ -903,61 +1119,55 @@ void Battleship::spawnThrusterParticles(float dt) {
 
     auto emitFromNozzle = [&](float nozzleLocalX, float throttle) {
         if (throttle < 0.02f) return;
-        // Spawn rate scales with throttle for dense, powerful exhaust
-        float spawnRate = (120.0f + 260.0f * throttle) * throttle; // [particles/s]
+        float spawnRate = (120.0f + 260.0f * throttle) * throttle;
         int numParticles = (int)(spawnRate * dt);
         if (((float)std::rand() / (float)RAND_MAX) < (spawnRate * dt - numParticles)) {
             numParticles++;
         }
 
-        float cosA = std::cos(m_angle);
-        float sinA = std::sin(m_angle);
-        float exDx = -sinA;
-        float exDy =  cosA;
-        float perpDx =  cosA;
-        float perpDy =  sinA;
+        Vec3 exDir   = localToWorldDir({0.0f, 1.0f, 0.0f});
+        Vec3 perpX   = localToWorldDir({1.0f, 0.0f, 0.0f});
+        Vec3 perpZ   = localToWorldDir({0.0f, 0.0f, 1.0f});
+        Vec3 nozzleW = localToWorldPoint({nozzleLocalX, 5.0f * FT2M, 0.0f});
 
-        float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
-        float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
-
-        // Tight nozzle emitter aperture (tighter at high throttle)
         float mouthSpread = (0.7f + 0.3f * (1.0f - throttle)) * FT2M;
 
         for (int i = 0; i < numParticles; ++i) {
             if (m_particles.size() >= 1200) break;
             ThrusterParticle p;
-            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
-            p.x = nozzleWx + perpDx * mouthOffset;
-            p.y = nozzleWy + perpDy * mouthOffset;
+            float offX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
+            float offZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
+            Vec3 pos = nozzleW + perpX * offX + perpZ * offZ;
+            p.x = pos.x;
+            p.y = pos.y;
+            p.z = pos.z;
 
-            // Exhaust ejection velocity strongly proportional to throttle (fast: 90 ft/s up to 500 ft/s)
             float speedFt = 90.0f + 380.0f * throttle + (((float)std::rand() / (float)RAND_MAX) * 50.0f * throttle);
-            float speed = speedFt * FT2M; // [m/s]
+            float speed = speedFt * FT2M;
 
-            // Tightly collimated exhaust beam: disperses significantly less, focusing even tighter at high throttle
-            float maxHalfAngle = 0.065f - 0.035f * throttle; // [rad] (~3.7 deg at low throttle down to ~1.7 deg at max throttle)
-            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
-            float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
-            float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
+            float maxHalfAngle = 0.065f - 0.035f * throttle;
+            float coneX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
+            float coneZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
+            Vec3 dir = (exDir + perpX * std::sin(coneX) + perpZ * std::sin(coneZ)).normalized();
 
-            p.vx = m_vx * 0.25f + dirX * speed;
-            p.vy = m_vy * 0.25f + dirY * speed;
+            p.vx = m_vx * 0.25f + dir.x * speed;
+            p.vy = m_vy * 0.25f + dir.y * speed;
+            p.vz = m_vz * 0.25f + dir.z * speed;
 
-            // Plume length scales with throttle: longer sustained exhaust column at high throttle
-            float baseLife = 0.16f + 0.22f * throttle; // [s]
+            float baseLife = 0.16f + 0.22f * throttle;
             p.maxLife = baseLife + (((float)std::rand() / (float)RAND_MAX) * 0.08f);
             p.life = p.maxLife;
             p.bounceCount = 0;
 
             int colorRand = std::rand() % 100;
             if (throttle > 0.65f && colorRand < 40) {
-                p.color = {255, 255, 245, 255}; // Blazing white hyper-thermal core
+                p.color = {255, 255, 245, 255};
             } else if (colorRand < 30) {
-                p.color = {255, 240, 180, 255}; // Bright white-gold spark
+                p.color = {255, 240, 180, 255};
             } else if (colorRand < 75) {
-                p.color = {255, 175, 40, 255};  // Vibrant vector flame orange
+                p.color = {255, 175, 40, 255};
             } else {
-                p.color = {255, 100, 25, 255};  // Deep amber-red ember
+                p.color = {255, 100, 25, 255};
             }
             m_particles.push_back(p);
         }
@@ -973,39 +1183,40 @@ void Battleship::spawnHoverParticles(float dt) {
     if (!m_unlimitedFuel && m_fuel <= 0.0f) return;
 
     auto emitFromVentralHoverJet = [&](float jetLocalX, float modThrottle) {
-        float spawnRate = 110.0f * modThrottle; // [particles/s]
+        float spawnRate = 110.0f * modThrottle;
         int numParticles = (int)(spawnRate * dt);
         if (((float)std::rand() / (float)RAND_MAX) < (spawnRate * dt - numParticles)) {
             numParticles++;
         }
 
-        float cosA = std::cos(m_angle);
-        float sinA = std::sin(m_angle);
-        float jetWx = m_x + (jetLocalX * cosA - (10.5f * FT2M) * sinA);
-        float jetWy = m_y + (jetLocalX * sinA + (10.5f * FT2M) * cosA);
+        Vec3 jetW = localToWorldPoint({jetLocalX, 10.5f * FT2M, 0.0f});
 
         for (int i = 0; i < numParticles; ++i) {
             if (m_particles.size() >= 1200) break;
             ThrusterParticle p;
             float spreadX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 3.0f * FT2M;
-            p.x = jetWx + spreadX;
-            p.y = jetWy;
+            float spreadZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 6.0f * FT2M;
+            p.x = jetW.x + spreadX;
+            p.y = jetW.y;
+            p.z = jetW.z + spreadZ;
 
             float speed = (80.0f + 160.0f * modThrottle) * FT2M;
-            float cone = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
-            p.vx = m_vx * 0.3f + std::sin(cone) * speed;
-            p.vy = m_vy * 0.2f + std::cos(cone) * speed;
+            float coneX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
+            float coneZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
+            p.vx = m_vx * 0.3f + std::sin(coneX) * speed;
+            p.vy = m_vy * 0.2f + std::cos(coneX) * speed;
+            p.vz = m_vz * 0.3f + std::sin(coneZ) * speed;
             p.maxLife = 0.22f + 0.14f * modThrottle;
             p.life = p.maxLife;
             p.bounceCount = 0;
 
             int cRand = std::rand() % 3;
             if (cRand == 0) {
-                p.color = {200, 250, 255, 255}; // Bright electric cyan-white
+                p.color = {200, 250, 255, 255};
             } else if (cRand == 1) {
-                p.color = {80, 220, 255, 255};  // Ground-effect hover cyan
+                p.color = {80, 220, 255, 255};
             } else {
-                p.color = {60, 175, 245, 255};  // Deep plasma blue
+                p.color = {60, 175, 245, 255};
             }
             m_particles.push_back(p);
         }
@@ -1017,50 +1228,44 @@ void Battleship::spawnHoverParticles(float dt) {
 
 void Battleship::spawnImpulseParticles() {
     auto emitImpulseFromNozzle = [&](float nozzleLocalX) {
-        float cosA = std::cos(m_angle);
-        float sinA = std::sin(m_angle);
-        float exDx = -sinA;
-        float exDy =  cosA;
-        float perpDx =  cosA;
-        float perpDy =  sinA;
+        Vec3 exDir   = localToWorldDir({0.0f, 1.0f, 0.0f});
+        Vec3 perpX   = localToWorldDir({1.0f, 0.0f, 0.0f});
+        Vec3 perpZ   = localToWorldDir({0.0f, 0.0f, 1.0f});
+        Vec3 nozzleW = localToWorldPoint({nozzleLocalX, 5.0f * FT2M, 0.0f});
 
-        float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
-        float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
-
-        // Explosive, less directional impulse shockwave: spawn a dense, wide starburst blast
         for (int i = 0; i < 85; ++i) {
             if (m_particles.size() >= 1400) break;
             ThrusterParticle p;
             p.isImpulse = true;
 
             float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.5f * FT2M;
-            p.x = nozzleWx + perpDx * mouthOffset;
-            p.y = nozzleWy + perpDy * mouthOffset;
+            Vec3 pos = nozzleW + perpX * mouthOffset;
+            p.x = pos.x;
+            p.y = pos.y;
+            p.z = pos.z;
 
-            // Highly explosive omnidirectional / wide radial blast (less directional)
-            // Wide blast angle across +/- 135 degrees relative to downward thrust axis
-            float blastAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 4.7f; // ~ +/- 135 deg
-            float dirX = exDx * std::cos(blastAngle) + perpDx * std::sin(blastAngle);
-            float dirY = exDy * std::cos(blastAngle) + perpDy * std::sin(blastAngle);
+            float blastAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 4.7f;
+            float blastZ     = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 1.4f;
+            Vec3 dir = (exDir * std::cos(blastAngle) + perpX * std::sin(blastAngle) + perpZ * std::sin(blastZ)).normalized();
 
-            // Explosive blast speeds: 380 ft/s to 720 ft/s (115 to 220 m/s)
             float speed = (380.0f + (std::rand() % 340)) * FT2M;
 
-            p.vx = m_vx * 0.15f + dirX * speed;
-            p.vy = m_vy * 0.15f + dirY * speed;
-            p.maxLife = 0.40f + ((float)(std::rand() % 35) / 100.0f); // Longer explosive lifetime
+            p.vx = m_vx * 0.15f + dir.x * speed;
+            p.vy = m_vy * 0.15f + dir.y * speed;
+            p.vz = m_vz * 0.15f + dir.z * speed;
+            p.maxLife = 0.40f + ((float)(std::rand() % 35) / 100.0f);
             p.life = p.maxLife;
             p.bounceCount = 0;
 
             int colorType = std::rand() % 4;
             if (colorType == 0) {
-                p.color = {255, 255, 255, 255}; // Blazing supernova white
+                p.color = {255, 255, 255, 255};
             } else if (colorType == 1) {
-                p.color = {210, 245, 255, 255}; // Electric cyan-white blast
+                p.color = {210, 245, 255, 255};
             } else if (colorType == 2) {
-                p.color = {255, 230, 90, 255};  // Brilliant yellow-gold
+                p.color = {255, 230, 90, 255};
             } else {
-                p.color = {255, 140, 35, 255};  // High-intensity vector plasma orange
+                p.color = {255, 140, 35, 255};
             }
             m_particles.push_back(p);
         }
@@ -1076,52 +1281,55 @@ void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
 
         float oldX = p.x;
         float oldY = p.y;
+        float oldZ = p.z;
 
         p.vy += GRAVITY * 0.25f * dt;
         p.vx *= (1.0f - 0.30f * dt);
         p.vy *= (1.0f - 0.30f * dt);
+        p.vz *= (1.0f - 0.30f * dt);
 
         float nextX = p.x + p.vx * dt;
         float nextY = p.y + p.vy * dt;
+        float nextZ = p.z + p.vz * dt;
 
         float moveDx = nextX - oldX;
         float moveDy = nextY - oldY;
-        float moveDist = std::sqrt(moveDx * moveDx + moveDy * moveDy);
+        float moveDz = nextZ - oldZ;
+        float moveDist2D = std::sqrt(moveDx * moveDx + moveDy * moveDy);
+        (void)moveDz;
 
         bool bounced = false;
-        if (moveDist > 1e-4f) {
-            float dirX = moveDx / moveDist;
-            float dirY = moveDy / moveDist;
+        if (moveDist2D > 1e-4f) {
+            float dirX = moveDx / moveDist2D;
+            float dirY = moveDy / moveDist2D;
 
             Terrain::RayHit hit;
-            if (terrain.castRay(oldX, oldY, dirX, dirY, moveDist, hit)) {
+            if (terrain.castRay(oldX, oldY, dirX, dirY, moveDist2D, hit)) {
                 float dot = p.vx * hit.normalX + p.vy * hit.normalY;
                 if (dot < 0.0f) {
-                    float inSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
-
-                    // Terrain surface tangent
+                    float inSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz);
                     float tangentX = -hit.normalY;
                     float tangentY =  hit.normalX;
 
-                    // Wide dispersion angle across the upper hemisphere (+/- 78 degrees relative to surface normal)
-                    float psi = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.7f; // ~ +/- 77.3 deg
+                    float psi = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.7f;
                     float cosPsi = std::cos(psi);
                     float sinPsi = std::sin(psi);
 
-                    // Rebound direction guaranteed to point into open space above surface (cosPsi > 0.22)
                     float rebDirX = hit.normalX * cosPsi + tangentX * sinPsi;
                     float rebDirY = hit.normalY * cosPsi + tangentY * sinPsi;
+                    float rebDirZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.65f;
 
-                    // Retain strong velocity after bounce so dispersed streaks shoot far across terrain
                     float speedRetain = p.isImpulse ? (0.65f + ((float)(std::rand() % 30) / 100.0f))
                                                     : (0.45f + ((float)(std::rand() % 35) / 100.0f));
                     float reboundSpeed = std::max(35.0f * FT2M, inSpeed * speedRetain);
 
                     p.vx = rebDirX * reboundSpeed;
                     p.vy = rebDirY * reboundSpeed;
+                    p.vz = rebDirZ * reboundSpeed;
 
                     p.x = oldX + dirX * hit.dist + hit.normalX * 0.25f;
                     p.y = oldY + dirY * hit.dist + hit.normalY * 0.25f;
+                    p.z = nextZ;
                     p.bounceCount++;
                     p.life *= (p.isImpulse ? 0.90f : 0.85f);
                     bounced = true;
@@ -1132,15 +1340,17 @@ void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
         if (!bounced) {
             p.x = nextX;
             p.y = nextY;
-            float surfY = terrain.getSurfaceHeightAt(p.x);
+            p.z = nextZ;
+            float surfY = terrain.getSurfaceHeightAt(p.x, p.z);
             if (p.y >= surfY) {
                 p.y = surfY - 0.2f;
-                float currentSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
+                float currentSpeed = std::sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz);
                 float rebSpeed = std::max(30.0f * FT2M, currentSpeed * (p.isImpulse ? 0.70f : 0.50f));
-                // Wide dispersion angle across upper hemisphere [-76 deg, +76 deg]
                 float angle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.65f;
+                float zAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 1.2f;
                 p.vx = std::sin(angle) * rebSpeed;
                 p.vy = -std::abs(std::cos(angle)) * rebSpeed;
+                p.vz = std::sin(zAngle) * rebSpeed * 0.5f;
                 p.bounceCount++;
                 p.life *= (p.isImpulse ? 0.90f : 0.85f);
             }
@@ -1161,42 +1371,73 @@ void Battleship::triggerCrash(SoundEngine& sound) {
     m_state = BattleshipState::CRASHED;
     sound.playExplosion();
 
-    float cosA = std::cos(m_angle);
-    float sinA = std::sin(m_angle);
-
-    // Break craft wireframe into tumbling vector debris pieces
+    // Break 3D craft wireframe into tumbling 3D vector debris pieces
     m_debris.clear();
-    for (const auto& line : m_craftLines) {
+    for (const auto& line : m_craftLines3D) {
         DebrisLine d;
-        d.x1 = m_x + (line.x1 * cosA - line.y1 * sinA); // [m]
-        d.y1 = m_y + (line.x1 * sinA + line.y1 * cosA); // [m]
-        d.x2 = m_x + (line.x2 * cosA - line.y2 * sinA); // [m]
-        d.y2 = m_y + (line.x2 * sinA + line.y2 * cosA); // [m]
+        Vec3 w1 = localToWorldPoint({line.x1, line.y1, line.z1});
+        Vec3 w2 = localToWorldPoint({line.x2, line.y2, line.z2});
+        d.x1 = w1.x; d.y1 = w1.y; d.z1 = w1.z;
+        d.x2 = w2.x; d.y2 = w2.y; d.z2 = w2.z;
 
-        float centerLx = (line.x1 + line.x2) * 0.5f; // [m]
-        float centerLy = (line.y1 + line.y2) * 0.5f; // [m]
-        float blastSpeed = (15.0f + (std::rand() % 45)) * FT2M; // [m/s]
-        d.vx = m_vx * 0.4f + centerLx * blastSpeed * 0.08f + (((std::rand() % 30) - 15) * FT2M); // [m/s]
-        d.vy = m_vy * 0.4f + centerLy * blastSpeed * 0.08f - ((std::rand() % 35) * FT2M);        // [m/s]
-        d.angle = m_angle;                                      // [rad]
-        d.angularVel = ((std::rand() % 100) - 50) * 0.1f;       // [rad/s]
-        d.life = 1.0f;                                          // [s]
+        float centerLx = (line.x1 + line.x2) * 0.5f;
+        float centerLy = (line.y1 + line.y2) * 0.5f;
+        float centerLz = (line.z1 + line.z2) * 0.5f;
+        float blastSpeed = (15.0f + (std::rand() % 45)) * FT2M;
+        d.vx = m_vx * 0.4f + centerLx * blastSpeed * 0.08f + (((std::rand() % 30) - 15) * FT2M);
+        d.vy = m_vy * 0.4f + centerLy * blastSpeed * 0.08f - ((std::rand() % 35) * FT2M);
+        d.vz = m_vz * 0.4f + centerLz * blastSpeed * 0.08f + (((std::rand() % 30) - 15) * FT2M);
+        d.angle = m_angle;
+        d.angularVel = ((std::rand() % 100) - 50) * 0.1f;
+        d.life = 1.0f;
 
         m_debris.push_back(d);
     }
 }
 
+void Battleship::renderDropShadow(SDL_Renderer* renderer, const Camera2D& cam, const Terrain& terrain, float glow) const {
+    if (m_state == BattleshipState::CRASHED || !cam.use3D) return;
+
+    float surfY = terrain.getSurfaceHeightAt(m_x, m_z);
+    float skidY = m_y + 12.0f * FT2M;
+    float alt = std::max(0.0f, surfY - skidY);
+
+    // 1. Vertical Laser Plumb-Line from keel to lunar surface
+    SDL_Color plumbColor = isSafeSpeed() && isSafeAngle()
+        ? SDL_Color{90, 255, 160, 130}
+        : SDL_Color{255, 140, 90, 130};
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x, skidY, m_z, m_x, surfY, m_z, plumbColor, glow * 0.85f, 1);
+
+    // 2. 3D Projected Ground Target Reticle on Terrain Surface directly beneath craft
+    float rX = 18.0f * FT2M;
+    float rZ = 12.0f * FT2M;
+    float yFL = terrain.getSurfaceHeightAt(m_x - rX, m_z + rZ) - 0.15f;
+    float yFR = terrain.getSurfaceHeightAt(m_x + rX, m_z + rZ) - 0.15f;
+    float yBL = terrain.getSurfaceHeightAt(m_x - rX, m_z - rZ) - 0.15f;
+    float yBR = terrain.getSurfaceHeightAt(m_x + rX, m_z - rZ) - 0.15f;
+
+    SDL_Color shadowCol = (alt < 40.0f) ? SDL_Color{110, 255, 220, 210} : SDL_Color{90, 190, 170, 150};
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x - rX, yFL, m_z + rZ, m_x + rX, yFR, m_z + rZ, shadowCol, glow, 1);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x + rX, yFR, m_z + rZ, m_x + rX, yBR, m_z - rZ, shadowCol, glow, 1);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x + rX, yBR, m_z - rZ, m_x - rX, yBL, m_z - rZ, shadowCol, glow, 1);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x - rX, yBL, m_z - rZ, m_x - rX, yFL, m_z + rZ, shadowCol, glow, 1);
+
+    // Surface crosshair ticks
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x - 4.0f, surfY - 0.15f, m_z, m_x + 4.0f, surfY - 0.15f, m_z, shadowCol, glow * 1.2f, 2);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x, surfY - 0.15f, m_z - 4.0f, m_x, surfY - 0.15f, m_z + 4.0f, shadowCol, glow * 1.2f, 2);
+}
+
 void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
-    SDL_Color craftColor = {240, 255, 240, 255}; // Classic vector white/cyan
+    SDL_Color craftColor = {240, 255, 240, 255};
     if (m_impactFlashTimer > 0.0f) {
-        craftColor = {255, 110, 90, 255}; // Flash warning red/amber on impact
+        craftColor = {255, 110, 90, 255};
         glow *= 1.8f;
     } else if (m_damage > 65.0f && std::fmod(m_flameFlicker, 6.0f) < 1.5f) {
-        craftColor = {255, 190, 140, 255}; // Damaged hull warning tint
+        craftColor = {255, 190, 140, 255};
     }
-    SDL_Color rcsColor = {100, 220, 255, 255};  // Vector cyan for attitude jets
+    SDL_Color rcsColor = {100, 220, 255, 255};
 
-    // 1. Draw Expelled Thruster Particle Debris (visible in all states including lingering after crash)
+    // 1. Draw Expelled 3D Thruster Particle Debris
     for (const auto& p : m_particles) {
         if (p.life <= 0.0f) continue;
         float lifeRatio = std::clamp(p.life / p.maxLife, 0.0f, 1.0f);
@@ -1205,199 +1446,193 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         SDL_Color col = p.color;
         col.a = alpha;
 
-        float speed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
+        float speed = std::sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz);
 
         float streakLen;
         int thickness = 1;
         float particleGlow = glow * 1.4f;
 
         if (p.isImpulse) {
-            // Impulse streaks are much bigger, thicker, and explosive (up to 24 ft / 7.3m long!)
             streakLen = std::clamp(speed * 0.075f, 3.5f * FT2M, 24.0f * FT2M);
             thickness = 2;
             particleGlow = glow * 2.4f;
         } else {
-            // High-velocity tracer streak proportional to particle speed
-            // If it has bounced, ensure ricochet streaks disperse with clear visibility
             float minLen = (p.bounceCount > 0) ? 0.6f * FT2M : 0.4f * FT2M;
             streakLen = std::clamp(speed * 0.035f, minLen, 5.0f * FT2M);
         }
 
-        float sx1 = p.x;
-        float sy1 = p.y;
-        float sx2 = p.x - (p.vx / (speed + 1e-4f)) * streakLen;
-        float sy2 = p.y - (p.vy / (speed + 1e-4f)) * streakLen;
+        Vec3 p1{p.x, p.y, p.z};
+        Vec3 vDir = Vec3{p.vx, p.vy, p.vz} / (speed + 1e-4f);
+        Vec3 p2 = p1 - vDir * streakLen;
 
-        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, particleGlow, thickness);
+        VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, col, particleGlow, thickness);
     }
 
     if (m_state == BattleshipState::CRASHED) {
-        // Draw tumbling debris
         for (const auto& d : m_debris) {
             if (d.life <= 0.0f) continue;
             Uint8 alpha = (Uint8)(std::clamp(d.life, 0.0f, 1.0f) * 255.0f);
             SDL_Color debColor = {craftColor.r, craftColor.g, craftColor.b, alpha};
-            VectorRenderer::drawLineWorld(renderer, cam, d.x1, d.y1, d.x2, d.y2, debColor, glow);
+            VectorRenderer::drawLineWorld3D(renderer, cam, d.x1, d.y1, d.z1, d.x2, d.y2, d.z2, debColor, glow);
         }
         return;
     }
 
-    float cosA = std::cos(m_angle);
-    float sinA = std::sin(m_angle);
-
-    // 2. Draw Craft Wireframe lines
+    // 2. Draw 3D Craft Wireframe (or 2D profile when in classic 2D mode)
+    if (cam.use3D) {
+        for (const auto& line : m_craftLines3D) {
+            Vec3 w1 = localToWorldPoint({line.x1, line.y1, line.z1});
+            Vec3 w2 = localToWorldPoint({line.x2, line.y2, line.z2});
+            VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, craftColor, glow, 2);
+        }
+    }
+    // Always draw primary silhouette lines at z=0 for crisp profile readability
     for (const auto& line : m_craftLines) {
-        float wx1 = m_x + (line.x1 * cosA - line.y1 * sinA); // [m]
-        float wy1 = m_y + (line.x1 * sinA + line.y1 * cosA); // [m]
-        float wx2 = m_x + (line.x2 * cosA - line.y2 * sinA); // [m]
-        float wy2 = m_y + (line.x2 * sinA + line.y2 * cosA); // [m]
-
-        VectorRenderer::drawLineWorld(renderer, cam, wx1, wy1, wx2, wy2, craftColor, glow, 2);
+        Vec3 w1 = localToWorldPoint({line.x1, line.y1, 0.0f});
+        Vec3 w2 = localToWorldPoint({line.x2, line.y2, 0.0f});
+        VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, craftColor, glow, 2);
     }
 
-    // 3. Draw Steady (Non-Pulsing) Nozzle Core Plume
-    auto wPoint = [&](float lx, float ly, float& wx, float& wy) {
-        wx = m_x + (lx * cosA - ly * sinA); // [m]
-        wy = m_y + (lx * sinA + ly * cosA); // [m]
-    };
-
-    auto drawSteadyNozzleFlare = [&](float nozzleCenterX, float throttle) {
-        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M); // [m] Steady length proportional to throttle (no pulsation)
+    // 3. Draw 3D Steady Nozzle Core Plume Cones
+    auto drawSteadyNozzleFlare3D = [&](float nozzleCenterX, float throttle) {
+        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M);
         float flameWidth = 2.4f * FT2M;
 
-        float f1x = nozzleCenterX - flameWidth, f1y = 5.0f * FT2M; // [m]
-        float f2x = nozzleCenterX + flameWidth, f2y = 5.0f * FT2M; // [m]
-        float f3x = nozzleCenterX,              f3y = 5.0f * FT2M + flameLength;
-
-        float w1x, w1y, w2x, w2y, w3x, w3y;
-        wPoint(f1x, f1y, w1x, w1y);
-        wPoint(f2x, f2y, w2x, w2y);
-        wPoint(f3x, f3y, w3x, w3y);
+        Vec3 tip = localToWorldPoint({nozzleCenterX, 5.0f * FT2M + flameLength, 0.0f});
+        Vec3 r1  = localToWorldPoint({nozzleCenterX - flameWidth, 5.0f * FT2M, 0.0f});
+        Vec3 r2  = localToWorldPoint({nozzleCenterX + flameWidth, 5.0f * FT2M, 0.0f});
+        Vec3 r3  = localToWorldPoint({nozzleCenterX, 5.0f * FT2M, -flameWidth});
+        Vec3 r4  = localToWorldPoint({nozzleCenterX, 5.0f * FT2M,  flameWidth});
 
         SDL_Color flareColor = {255, 235, 160, 255};
-        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w3x, w3y, flareColor, glow * 1.5f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w2x, w2y, w3x, w3y, flareColor, glow * 1.5f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w2x, w2y, flareColor, glow * 1.2f, 1);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r1, tip, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r2, tip, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r3, tip, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r4, tip, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r1, r2,  flareColor, glow * 1.2f, 1);
     };
 
-    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
-        drawSteadyNozzleFlare(-5.5f * FT2M, m_throttleLeft); // [m] Left nozzle
+    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        drawSteadyNozzleFlare3D(-5.5f * FT2M, m_throttleLeft);
     }
-    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
-        drawSteadyNozzleFlare(5.5f * FT2M, m_throttleRight);  // [m] Right nozzle
+    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        drawSteadyNozzleFlare3D(5.5f * FT2M, m_throttleRight);
     }
 
-    // 4. Draw RCS Attitude Thruster Puffs at upper hull mounts (-14.0 ft, -8.0 ft) and (+14.0 ft, -8.0 ft)
+    // 4. Draw 3D RCS Attitude Thruster Puffs (Roll & Pitch)
     if (m_rcsPuffLeft > 0.0f && m_state == BattleshipState::FLYING) {
-        float px1 = m_x + (-14.0f * FT2M * cosA - (-8.0f * FT2M) * sinA); // [m]
-        float py1 = m_y + (-14.0f * FT2M * sinA + (-8.0f * FT2M) * cosA); // [m]
-        float px2 = m_x + (-22.0f * FT2M * cosA - (-8.0f * FT2M) * sinA); // [m]
-        float py2 = m_y + (-22.0f * FT2M * sinA + (-8.0f * FT2M) * cosA); // [m]
-        VectorRenderer::drawLineWorld(renderer, cam, px1, py1, px2, py2, rcsColor, glow * 1.5f, 2);
+        Vec3 p1 = localToWorldPoint({-14.0f * FT2M, -8.0f * FT2M, 0.0f});
+        Vec3 p2 = localToWorldPoint({-22.0f * FT2M, -8.0f * FT2M, 0.0f});
+        VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
     if (m_rcsPuffRight > 0.0f && m_state == BattleshipState::FLYING) {
-        float px1 = m_x + (14.0f * FT2M * cosA - (-8.0f * FT2M) * sinA); // [m]
-        float py1 = m_y + (14.0f * FT2M * sinA + (-8.0f * FT2M) * cosA); // [m]
-        float px2 = m_x + (22.0f * FT2M * cosA - (-8.0f * FT2M) * sinA); // [m]
-        float py2 = m_y + (22.0f * FT2M * sinA + (-8.0f * FT2M) * cosA); // [m]
-        VectorRenderer::drawLineWorld(renderer, cam, px1, py1, px2, py2, rcsColor, glow * 1.5f, 2);
+        Vec3 p1 = localToWorldPoint({14.0f * FT2M, -8.0f * FT2M, 0.0f});
+        Vec3 p2 = localToWorldPoint({22.0f * FT2M, -8.0f * FT2M, 0.0f});
+        VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
+    }
+    if (m_rcsPuffAft > 0.0f && m_state == BattleshipState::FLYING) {
+        Vec3 p1 = localToWorldPoint({0.0f, -8.0f * FT2M, -11.0f * FT2M});
+        Vec3 p2 = localToWorldPoint({0.0f, -8.0f * FT2M, -19.0f * FT2M});
+        VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
+    }
+    if (m_rcsPuffFore > 0.0f && m_state == BattleshipState::FLYING) {
+        Vec3 p1 = localToWorldPoint({0.0f, -8.0f * FT2M, 11.0f * FT2M});
+        Vec3 p2 = localToWorldPoint({0.0f, -8.0f * FT2M, 19.0f * FT2M});
+        VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
 
-    // 5. Draw Deployed Air Brake Flaps & Drag Wake Chevrons
+    // 5. Draw 3D Deployed Air Brake Flaps
     if (m_airBrakeDeploy > 0.02f && m_state != BattleshipState::CRASHED) {
         SDL_Color brakeColor = {255, 195, 70, 255};
         float d = m_airBrakeDeploy;
-        auto drawLocalSegment = [&](float lx1, float ly1, float lx2, float ly2, SDL_Color col, int thick = 2) {
-            float wx1, wy1, wx2, wy2;
-            wPoint(lx1, ly1, wx1, wy1);
-            wPoint(lx2, ly2, wx2, wy2);
-            VectorRenderer::drawLineWorld(renderer, cam, wx1, wy1, wx2, wy2, col, glow * 1.4f, thick);
+        auto drawLocalSeg3D = [&](float lx1, float ly1, float lz1, float lx2, float ly2, float lz2, int thick = 2) {
+            Vec3 w1 = localToWorldPoint({lx1, ly1, lz1});
+            Vec3 w2 = localToWorldPoint({lx2, ly2, lz2});
+            VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, brakeColor, glow * 1.4f, thick);
         };
 
-        // Port & Starboard upper spoiler petals & hydraulic struts
-        drawLocalSegment(-15.0f * FT2M, -7.5f * FT2M, (-15.0f - 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, brakeColor, 2);
-        drawLocalSegment(-17.5f * FT2M, -5.0f * FT2M, (-15.0f - 6.0f * d) * FT2M, (-7.5f - 4.2f * d) * FT2M, brakeColor, 1);
-        drawLocalSegment( 15.0f * FT2M, -7.5f * FT2M, ( 15.0f + 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, brakeColor, 2);
-        drawLocalSegment( 17.5f * FT2M, -5.0f * FT2M, ( 15.0f + 6.0f * d) * FT2M, (-7.5f - 4.2f * d) * FT2M, brakeColor, 1);
-
-        // Port & Starboard lower ventral dive-brake petals
-        drawLocalSegment(-19.5f * FT2M, -2.5f * FT2M, (-19.5f - 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, brakeColor, 2);
-        drawLocalSegment( 19.5f * FT2M, -2.5f * FT2M, ( 19.5f + 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, brakeColor, 2);
+        for (float z : {-4.5f * FT2M, 4.5f * FT2M}) {
+            drawLocalSeg3D(-15.0f * FT2M, -7.5f * FT2M, z, (-15.0f - 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, z, 2);
+            drawLocalSeg3D( 15.0f * FT2M, -7.5f * FT2M, z, ( 15.0f + 8.5f * d) * FT2M, (-7.5f - 6.0f * d) * FT2M, z, 2);
+            drawLocalSeg3D(-19.5f * FT2M, -2.5f * FT2M, z, (-19.5f - 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, z, 2);
+            drawLocalSeg3D( 19.5f * FT2M, -2.5f * FT2M, z, ( 19.5f + 6.5f * d) * FT2M, (-2.5f + 5.0f * d) * FT2M, z, 2);
+        }
     }
 
-    // 6. Draw Ventral Ground Effect Hover Thruster Plumes
+    // 6. Draw 3D Ventral Ground Effect Hover Thruster Plumes
     if (m_hoverThrustersEnabled && m_hoverThrusterThrottle > 0.02f &&
         (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
         SDL_Color hoverColor = {80, 230, 255, 255};
         float hLen = (3.5f + 10.5f * m_hoverThrusterThrottle) * FT2M;
         float hWid = 2.0f * FT2M;
 
-        auto drawHoverCone = [&](float centerX) {
-            float w1x, w1y, w2x, w2y, w3x, w3y;
-            wPoint(centerX - hWid, 10.5f * FT2M, w1x, w1y);
-            wPoint(centerX + hWid, 10.5f * FT2M, w2x, w2y);
-            wPoint(centerX,        10.5f * FT2M + hLen, w3x, w3y);
-            VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w3x, w3y, hoverColor, glow * 1.6f, 2);
-            VectorRenderer::drawLineWorld(renderer, cam, w2x, w2y, w3x, w3y, hoverColor, glow * 1.6f, 2);
-            VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w2x, w2y, hoverColor, glow * 1.2f, 1);
+        auto drawHoverCone3D = [&](float centerX, float centerZ) {
+            Vec3 w1  = localToWorldPoint({centerX - hWid, 10.5f * FT2M, centerZ});
+            Vec3 w2  = localToWorldPoint({centerX + hWid, 10.5f * FT2M, centerZ});
+            Vec3 w3  = localToWorldPoint({centerX, 10.5f * FT2M + hLen, centerZ});
+            VectorRenderer::drawLineWorld3D(renderer, cam, w1, w3, hoverColor, glow * 1.6f, 2);
+            VectorRenderer::drawLineWorld3D(renderer, cam, w2, w3, hoverColor, glow * 1.6f, 2);
+            VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, hoverColor, glow * 1.2f, 1);
         };
 
-        drawHoverCone(-14.5f * FT2M);
-        drawHoverCone( 14.5f * FT2M);
+        drawHoverCone3D(-14.5f * FT2M, -6.0f * FT2M);
+        drawHoverCone3D(-14.5f * FT2M,  6.0f * FT2M);
+        drawHoverCone3D( 14.5f * FT2M, -6.0f * FT2M);
+        drawHoverCone3D( 14.5f * FT2M,  6.0f * FT2M);
     }
 
-    // 7. Draw Real-Time Force Vector Visualization Overlay (On by Default)
+    // 7. Draw Real-Time 3D Force Vector Visualization Overlay
     if (m_showForceVectors && m_state != BattleshipState::CRASHED) {
         renderForceVectors(renderer, cam, glow);
     }
 }
 
 void Battleship::renderForceVectors(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
-    // Scale factor: 1.60 m of world arrow length per 1 m/s^2 of acceleration
-    // (e.g., 18.29 m/s^2 single engine = 29.26 m = 96.0 ft arrow; 8.53 m/s^2 gravity = 13.65 m = 44.8 ft arrow)
     static const float ACCEL_TO_WORLD_M = 1.60f;
 
-    // Draw Center of Mass (CM) reticle
+    // Draw 3D Center of Mass (CM) reticle
     float cmR = 1.8f * FT2M;
     SDL_Color cmColor = {255, 255, 255, 200};
-    VectorRenderer::drawLineWorld(renderer, cam, m_x - cmR, m_y, m_x + cmR, m_y, cmColor, glow, 2);
-    VectorRenderer::drawLineWorld(renderer, cam, m_x, m_y - cmR, m_x, m_y + cmR, cmColor, glow, 2);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x - cmR, m_y, m_z, m_x + cmR, m_y, m_z, cmColor, glow, 2);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x, m_y - cmR, m_z, m_x, m_y + cmR, m_z, cmColor, glow, 2);
+    VectorRenderer::drawLineWorld3D(renderer, cam, m_x, m_y, m_z - cmR, m_x, m_y, m_z + cmR, cmColor, glow, 2);
 
     for (const auto& fv : m_forceVectors) {
-        float mag = std::sqrt(fv.ax * fv.ax + fv.ay * fv.ay);
+        Vec3 aVec{fv.ax, fv.ay, fv.az};
+        float mag = aVec.length();
         if (mag < 0.15f) continue;
 
-        float dirX = fv.ax / mag;
-        float dirY = fv.ay / mag;
-        float perpX = -dirY;
-        float perpY =  dirX;
+        Vec3 dir = aVec / mag;
+        Vec3 perp = Vec3{-dir.y, dir.x, 0.0f};
+        if (perp.lengthSq() < 0.05f) {
+            perp = Vec3{1.0f, 0.0f, 0.0f};
+        } else {
+            perp = perp.normalized();
+        }
 
-        // Large, prominent world arrow length (4.5 m to 55.0 m)
         float worldLen = std::clamp(mag * ACCEL_TO_WORLD_M, 4.5f, 55.0f);
-        float tipWx = fv.wx + dirX * worldLen;
-        float tipWy = fv.wy + dirY * worldLen;
+        Vec3 anchor{fv.wx, fv.wy, fv.wz};
+        Vec3 tip = anchor + dir * worldLen;
 
-        // Draw diamond anchor at force application point on the hull
+        // Draw diamond anchor at force application point
         float anchorR = 1.4f * FT2M;
-        VectorRenderer::drawLineWorld(renderer, cam, fv.wx - anchorR, fv.wy, fv.wx, fv.wy - anchorR, fv.color, glow * 1.2f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, fv.wx, fv.wy - anchorR, fv.wx + anchorR, fv.wy, fv.color, glow * 1.2f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, fv.wx + anchorR, fv.wy, fv.wx, fv.wy + anchorR, fv.color, glow * 1.2f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, fv.wx, fv.wy + anchorR, fv.wx - anchorR, fv.wy, fv.color, glow * 1.2f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, anchor.x - anchorR, anchor.y, anchor.z, anchor.x, anchor.y - anchorR, anchor.z, fv.color, glow * 1.2f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, anchor.x, anchor.y - anchorR, anchor.z, anchor.x + anchorR, anchor.y, anchor.z, fv.color, glow * 1.2f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, anchor.x + anchorR, anchor.y, anchor.z, anchor.x, anchor.y + anchorR, anchor.z, fv.color, glow * 1.2f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, anchor.x, anchor.y + anchorR, anchor.z, anchor.x - anchorR, anchor.y, anchor.z, fv.color, glow * 1.2f, 2);
 
-        // Draw primary force shaft
+        // Draw primary 3D force shaft
         int thickness = (fv.label == "NET") ? 3 : 2;
-        VectorRenderer::drawLineWorld(renderer, cam, fv.wx, fv.wy, tipWx, tipWy, fv.color, glow * 1.6f, thickness);
+        VectorRenderer::drawLineWorld3D(renderer, cam, anchor, tip, fv.color, glow * 1.6f, thickness);
 
-        // Draw bold arrowhead barbs
+        // Draw 3D arrowhead barbs
         float headLen = std::clamp(worldLen * 0.22f, 1.5f, 5.5f);
         float headWid = headLen * 0.58f;
-        float barb1Wx = tipWx - dirX * headLen + perpX * headWid;
-        float barb1Wy = tipWy - dirY * headLen + perpY * headWid;
-        float barb2Wx = tipWx - dirX * headLen - perpX * headWid;
-        float barb2Wy = tipWy - dirY * headLen - perpY * headWid;
+        Vec3 barb1 = tip - dir * headLen + perp * headWid;
+        Vec3 barb2 = tip - dir * headLen - perp * headWid;
 
-        VectorRenderer::drawLineWorld(renderer, cam, tipWx, tipWy, barb1Wx, barb1Wy, fv.color, glow * 1.6f, thickness);
-        VectorRenderer::drawLineWorld(renderer, cam, tipWx, tipWy, barb2Wx, barb2Wy, fv.color, glow * 1.6f, thickness);
-        VectorRenderer::drawLineWorld(renderer, cam, barb1Wx, barb1Wy, barb2Wx, barb2Wy, fv.color, glow * 1.3f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, tip, barb1, fv.color, glow * 1.6f, thickness);
+        VectorRenderer::drawLineWorld3D(renderer, cam, tip, barb2, fv.color, glow * 1.6f, thickness);
+        VectorRenderer::drawLineWorld3D(renderer, cam, barb1, barb2, fv.color, glow * 1.3f, 2);
     }
 }

@@ -5,10 +5,12 @@
 #include <string>
 
 struct LandingPad {
-    float x1, x2;   // [m] Pad horizontal bounds (left and right)
-    float y;        // [m] Pad surface height / altitude datum
+    float x1, x2;   // [m] Pad horizontal bounds (East/West)
+    float y;        // [m] Pad surface height / altitude datum (+Y is down)
     int multiplier; // [dimensionless] Score multiplier (2x, 3x, 4x, 5x)
     std::string label;
+    float z1 = -33.528f; // [m] Pad depth bounds South (-110 ft)
+    float z2 =  33.528f; // [m] Pad depth bounds North (+110 ft)
 };
 
 struct TerrainSegment {
@@ -34,30 +36,44 @@ public:
 
     void render(SDL_Renderer* renderer, const Camera2D& cam, float glow = 1.0f);
 
-    // Collision detection
-    // Returns true if segment (px1, py1) -> (px2, py2) collides with terrain.
-    // Coordinates in [m].
-    // If collides on a landing pad, outPadMultiplier is populated.
-    bool checkCollision(float px1, float py1, float px2, float py2, 
+    // 2D Collision detection (Z = 0 slice)
+    bool checkCollision(float px1, float py1, float px2, float py2,
                         bool& outIsPad, int& outPadMultiplier, float& outHitY) const;
 
-    float getSurfaceHeightAt(float x) const; // x in [m], returns [m]
+    // 3D Collision detection against the 2D heightfield y = h(x, z)
+    bool checkCollision3D(const Vec3& p1, const Vec3& p2,
+                          bool& outIsPad, int& outPadMultiplier, float& outHitY,
+                          Vec3* outNormal = nullptr) const;
 
-    // Ray casting for ground effect plume impingement.
-    // Fires a ray from (ox,oy) in direction (dx,dy) up to maxDist.
-    // Coordinates and maxDist in [m].
-    // Returns true and populates outHit if any terrain segment is struck.
+    // Heightfield & normal queries (z defaults to 0.0f for 2D callers)
+    float getSurfaceHeightAt(float x, float z = 0.0f) const; // x, z in [m], returns [m]
+    Vec3 getSurfaceNormalAt(float x, float z = 0.0f) const;  // returns unit normal pointing into sky (ny < 0)
+    bool isPointOnPad(float x, float z, int& outMultiplier, float& outPadY) const;
+
+    // 2D Ray casting for ground effect plume impingement
     struct RayHit {
         float dist;               // [m] Distance along ray to intersection
         float normalX, normalY;   // [dimensionless] Surface normal unit vector pointing toward ray origin
     };
     bool castRay(float ox, float oy, float dx, float dy, float maxDist, RayHit& outHit) const;
+
+    // 3D Ray casting for 3D ground effect cone & 3D particle ricochets
+    struct RayHit3D {
+        float dist = 0.0f;        // [m] Distance along ray to intersection
+        Vec3 point{0.0f, 0.0f, 0.0f};  // [m] World-space hit point
+        Vec3 normal{0.0f, -1.0f, 0.0f};// [dimensionless] Unit surface normal pointing into sky
+        bool isPad = false;
+        int padMultiplier = 0;
+    };
+    bool castRay3D(const Vec3& origin, const Vec3& dir, float maxDist, RayHit3D& outHit) const;
+
     const std::vector<LandingPad>& getLandingPads() const { return m_pads; }
     std::string getSiteName() const { return m_siteName; }
     MissionSite getCurrentSite() const { return m_currentSite; }
 
-    float getWorldWidth() const { return m_worldWidth; }   // [m] World width
-    float getWorldHeight() const { return m_worldHeight; } // [m] World height
+    float getWorldWidth() const { return m_worldWidth; }   // [m] World East-West width (X)
+    float getWorldHeight() const { return m_worldHeight; } // [m] World vertical height (Y)
+    float getWorldDepth() const { return m_worldDepth; }   // [m] World North-South depth (Z)
 
 private:
     void generateTranquilityBase();
@@ -65,13 +81,15 @@ private:
     void generateOceanOfStorms();
     void generateHadleyRille();
     void buildSegments();
+    float getCenterlineHeightAt(float x) const;
 
     MissionSite m_currentSite = MissionSite::TRANQUILITY_BASE;
     std::string m_siteName;
-    std::vector<std::pair<float, float>> m_vertices; // [m] Terrain vertices
-    std::vector<TerrainSegment> m_segments;          // [m] Terrain segments
-    std::vector<LandingPad> m_pads;                  // [m] Landing pad targets
+    std::vector<std::pair<float, float>> m_vertices; // [m] Centerline (Z=0) terrain vertices
+    std::vector<TerrainSegment> m_segments;          // [m] Centerline terrain segments
+    std::vector<LandingPad> m_pads;                  // [m] 3D Landing pad targets
 
-    float m_worldWidth = 1463.04f;   // [m] Terrain world width: 1463.04 m (converted from 4800.0 ft)
-    float m_worldHeight = 670.56f;   // [m] Terrain world height: 670.56 m (converted from 2200.0 ft)
+    float m_worldWidth = 1463.04f;   // [m] Terrain world width: 1463.04 m (4800.0 ft)
+    float m_worldHeight = 670.56f;   // [m] Terrain world height: 670.56 m (2200.0 ft)
+    float m_worldDepth = 731.52f;    // [m] Terrain world depth: 731.52 m (2400.0 ft, z in [-365.76, +365.76])
 };

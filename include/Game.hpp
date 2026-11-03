@@ -12,8 +12,8 @@
 #include <vector>
 
 struct Star {
-    float x, y;       // [m] Star position coordinates in world space
-    float brightness; // [0.0 - 1.0, dimensionless] Brightness intensity
+    float x, y, z = 0.0f; // [m] 3D Star position coordinates in world space
+    float brightness;     // [0.0 - 1.0, dimensionless] Brightness intensity
 };
 
 class Game {
@@ -31,6 +31,7 @@ public:
     const Battleship& getBattleship() const { return m_battleship; }
     Terrain& getTerrain() { return m_terrain; }
     const Terrain& getTerrain() const { return m_terrain; }
+    Camera2D& getCamera() { return m_camera; }
     const Camera2D& getCamera() const { return m_camera; }
     InputManager& getInput() { return m_input; }
     SDL_Renderer* getRenderer() const { return m_renderer; }
@@ -45,6 +46,8 @@ public:
     const std::string& getStatusMessage() const { return m_statusMessage; }
     const std::string& getStatusSubMessage() const { return m_statusSubMessage; }
 
+    void cycleCameraMode();
+
 private:
     void handleInput();
     void update(float dt); // dt in [s]
@@ -52,6 +55,7 @@ private:
 
     void renderHUD();
     void renderTelemetry();
+    void renderNavRadar(float centerX, float centerY, float radius);
     void renderFlightStatus();
     void renderControllerGuide();
     void initStars();

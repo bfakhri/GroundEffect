@@ -605,7 +605,198 @@ bool testHeadlessGameEndToEnd() {
     CHECK(game.getBattleship().getState() == BattleshipState::LANDED);
     CHECK_NEAR(game.getBattleship().getHull(), 100.0f, 1e-4f);
 
+    // 5. Test 3D Camera Mode Cycling ('m' / 'Tab') & 3D Pitch Input ('w')
+    CHECK(game.getCamera().use3D);
+    CHECK(game.getCamera().viewMode == CameraViewMode::CHASE_3D);
+    pushKeyEvent(SDL_KEYDOWN, SDLK_TAB);
+    game.stepFrame(DT);
+    pushKeyEvent(SDL_KEYUP, SDLK_TAB);
+    CHECK(game.getCamera().viewMode == CameraViewMode::ORBIT_3D);
+    CHECK(game.getCamera().use3D);
+
+    // Cycle through ISOMETRIC_3D -> CLASSIC_2D -> back to CHASE_3D
+    game.cycleCameraMode();
+    CHECK(game.getCamera().viewMode == CameraViewMode::ISOMETRIC_3D);
+    game.cycleCameraMode();
+    CHECK(game.getCamera().viewMode == CameraViewMode::CLASSIC_2D);
+    CHECK(!game.getCamera().use3D);
+    game.cycleCameraMode();
+    CHECK(game.getCamera().viewMode == CameraViewMode::CHASE_3D);
+    CHECK(game.getCamera().use3D);
+
     game.shutdown();
+    return true;
+}
+
+// ── 9. 3D Perspective Camera, Orthonormal Basis & Clipping Test ─────────────
+bool test3DCameraProjectionAndClipping() {
+    Camera3D cam;
+    cam.screenWidth = 1280;
+    cam.screenHeight = 720;
+    cam.x = 300.0f;
+    cam.y = 500.0f;
+    cam.z = 0.0f;
+    cam.zoom = 3.28084f;
+    cam.use3D = true;
+    cam.camYaw = 0.25f;
+    cam.camPitch = 0.30f;
+
+    // Verify camera basis is right-handed and orthonormal for arbitrary yaw & pitch
+    Vec3 camPos, right, camDown, forward;
+    cam.getBasis(camPos, right, camDown, forward);
+    CHECK_NEAR(right.length(), 1.0f, 1e-4f);
+    CHECK_NEAR(camDown.length(), 1.0f, 1e-4f);
+    CHECK_NEAR(forward.length(), 1.0f, 1e-4f);
+    CHECK_NEAR(right.dot(forward), 0.0f, 1e-4f);
+    CHECK_NEAR(right.dot(camDown), 0.0f, 1e-4f);
+    CHECK_NEAR(camDown.dot(forward), 0.0f, 1e-4f);
+
+    // Target center (cam.x, cam.y, cam.z) projects to exact screen center (640, 360)
+    float sx = 0.0f, sy = 0.0f, depth = 0.0f;
+    CHECK(cam.worldToScreen3D(cam.x, cam.y, cam.z, sx, sy, &depth));
+    CHECK_NEAR(sx, 640.0f, 0.5f);
+    CHECK_NEAR(sy, 360.0f, 0.5f);
+    CHECK_NEAR(depth, cam.getDistance(), 0.5f);
+
+    // Perspective foreshortening: an X offset further away in +Z projects narrower on screen than at target Z
+    cam.camYaw = 0.0f;
+    cam.camPitch = 0.0f;
+    float sxNear = 0.0f, syNear = 0.0f;
+    float sxFar = 0.0f, syFar = 0.0f;
+    CHECK(cam.worldToScreen3D(cam.x + 20.0f, cam.y, 0.0f, sxNear, syNear));
+    CHECK(cam.worldToScreen3D(cam.x + 20.0f, cam.y, 200.0f, sxFar, syFar));
+    CHECK((sxNear - 640.0f) > (sxFar - 640.0f) * 1.3f);
+
+    // Point behind the camera near plane returns false
+    cam.getBasis(camPos, right, camDown, forward);
+    Vec3 behindCam = camPos - forward * 5.0f;
+    CHECK(!cam.worldToScreen3D(behindCam.x, behindCam.y, behindCam.z, sx, sy));
+    return true;
+}
+
+// ── 10. 3D Terrain Heightfield, Normals, 3D Pads & 3D Raycasting ────────────
+bool test3DTerrainHeightfieldAndRaycasting() {
+    Terrain terrain;
+    CHECK(terrain.getWorldDepth() > 700.0f);
+
+    for (int i = 0; i < (int)MissionSite::COUNT; ++i) {
+        const auto& pads = terrain.getLandingPads();
+        for (const auto& pad : pads) {
+            CHECK(pad.z2 > 20.0f && pad.z1 < -20.0f);
+            float midX = 0.5f * (pad.x1 + pad.x2);
+
+            // Pad surface is flat across its 3D (X, Z) deck
+            CHECK_NEAR(terrain.getSurfaceHeightAt(midX, 0.0f), pad.y, 0.05f);
+            CHECK_NEAR(terrain.getSurfaceHeightAt(midX, pad.z1 * 0.6f), pad.y, 0.05f);
+            CHECK_NEAR(terrain.getSurfaceHeightAt(midX, pad.z2 * 0.6f), pad.y, 0.05f);
+
+            // Surface normal on the 3D pad deck points straight up (0, -1, 0)
+            Vec3 n = terrain.getSurfaceNormalAt(midX, pad.z2 * 0.4f);
+            CHECK_NEAR(n.x, 0.0f, 0.02f);
+            CHECK_NEAR(n.y, -1.0f, 0.02f);
+            CHECK_NEAR(n.z, 0.0f, 0.02f);
+
+            // 3D raycast onto off-center Z point of pad
+            Terrain::RayHit3D hit3d;
+            bool hit = terrain.castRay3D({midX, pad.y - 25.0f, 15.0f}, {0.0f, 1.0f, 0.0f}, 60.0f, hit3d);
+            CHECK(hit);
+            CHECK(hit3d.isPad);
+            CHECK(hit3d.padMultiplier == pad.multiplier);
+            CHECK_NEAR(hit3d.dist, 25.0f, 0.25f);
+            CHECK_NEAR(hit3d.normal.y, -1.0f, 0.02f);
+        }
+
+        // Far North/South canyon walls (|z| = 300 m) have 3D elevation relief compared to centerline
+        float hCenter = terrain.getSurfaceHeightAt(600.0f, 0.0f);
+        float hNorthWall = terrain.getSurfaceHeightAt(600.0f, 300.0f);
+        CHECK(std::abs(hNorthWall - hCenter) > 5.0f);
+
+        terrain.cycleSite();
+    }
+    return true;
+}
+
+// ── 11. 6-DOF 3D Flight, Pitch RCS, 3D Hover Skating & 3D Pad Landing Sim ───
+bool test3DFlightPitchHoverAndLandingSim() {
+    Terrain terrain;
+    SoundEngine sound;
+    Battleship ship;
+
+    // Verify 3D wireframe mesh is populated with volumetric Z segments
+    CHECK(ship.getCraftLines3D().size() > 80);
+    bool hasNonZeroZ = false;
+    for (const auto& l : ship.getCraftLines3D()) {
+        if (std::abs(l.z1) > 1.0f || std::abs(l.z2) > 1.0f) {
+            hasNonZeroZ = true;
+            break;
+        }
+    }
+    CHECK(hasNonZeroZ);
+
+    // A. Pitch RCS & Pitched Main Thruster Propulsion along +Z axis
+    ship.reset(500.0f, 200.0f, 300.0f, 0.0f);
+    ship.setVelocity(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < 30; ++i) {
+        ship.update(DT, 1.0f, 1.0f, 0.0f, false, false, terrain, sound, false, 1.0f, 0.0f);
+    }
+    CHECK(ship.getPitchVel() > 0.5f);
+    CHECK(ship.getPitch() > 0.1f);
+    CHECK(ship.getVz() > 1.0f); // Accelerated forward along +Z!
+    CHECK(ship.getZ() > 0.2f);
+
+    // B. 3D Emergency Abort self-rights both Roll and Pitch simultaneously
+    ship.reset(500.0f, 200.0f, 300.0f, 20.0f);
+    ship.setAngle(0.45f);
+    ship.setPitch(-0.45f);
+    ship.setVelocity(4.0f, 10.0f, -5.0f);
+    ship.update(DT, 0.0f, 0.0f, 0.0f, true, false, terrain, sound);
+    for (int i = 0; i < 48; ++i) {
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+    }
+    CHECK(std::abs(ship.getAngle()) < 0.25f);
+    CHECK(std::abs(ship.getPitch()) < 0.25f);
+    CHECK(ship.getVy() < 0.0f);
+
+    // C. 3D Diagonal Terrain Skating with Ground Effect Hover Thrusters across (X, Z)
+    {
+        float startX = 280.0f;
+        float startZ = -40.0f;
+        float surfY = terrain.getSurfaceHeightAt(startX, startZ);
+        ship.reset(startX, surfY - 12.0f * FT2M - Battleship::HOVER_TARGET_ALT, 340.0f, startZ);
+        ship.setVelocity(7.0f, 0.0f, 5.5f); // Skate diagonally North-East across 3D terrain
+        ship.setHoverThrustersEnabled(true);
+
+        for (int i = 0; i < 480; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+            CHECK_NEAR(ship.getDamage(), 0.0f, 1e-4f);
+            CHECK(ship.getState() == BattleshipState::FLYING);
+        }
+        CHECK(ship.getX() > startX + 50.0f);
+        CHECK(ship.getZ() > startZ + 35.0f);
+    }
+
+    // D. 3D Touchdown at an off-center Z coordinate on Pad 0
+    {
+        const auto& pad0 = terrain.getLandingPads()[0];
+        float padX = 0.5f * (pad0.x1 + pad0.x2);
+        float padZ = 18.0f; // 18 m North of centerline, still inside 3D pad deck
+        ship.reset(padX, pad0.y - 12.0f * FT2M - 3.0f, 340.0f, padZ);
+        ship.setVelocity(1.0f, 3.2f, -1.0f); // Safe 3D descent speed
+
+        bool landed3D = false;
+        for (int i = 0; i < 120; ++i) {
+            float cmd = std::clamp((ship.getVy() - 3.5f) * 0.25f, 0.0f, 1.0f);
+            ship.update(DT, cmd, cmd, 0.0f, false, false, terrain, sound);
+            if (ship.getState() == BattleshipState::LANDED) {
+                landed3D = true;
+                break;
+            }
+        }
+        CHECK(landed3D);
+        CHECK(ship.getLastPadMultiplier() == pad0.multiplier);
+        CHECK_NEAR(ship.getDamage(), 0.0f, 1e-4f);
+    }
+
     return true;
 }
 
@@ -621,6 +812,9 @@ int main() {
         {"Closed-Loop Landing, Re-Takeoff, Rebound & Crash Sim", testLandingReboundAndCrashSim},
         {"Thruster Particle Terrain Ricochet Physics", testParticleTerrainBounces},
         {"Headless SDL2 End-to-End Game Loop & Framebuffer", testHeadlessGameEndToEnd},
+        {"3D Perspective Camera, Orthonormal Basis & Clipping", test3DCameraProjectionAndClipping},
+        {"3D Terrain Heightfield, Normals, 3D Pads & Raycasting", test3DTerrainHeightfieldAndRaycasting},
+        {"6-DOF 3D Flight, Pitch RCS, 3D Hover & 3D Landing Sim", test3DFlightPitchHoverAndLandingSim},
     };
 
     std::cout << "====================================================\n";
