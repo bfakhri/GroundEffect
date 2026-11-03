@@ -64,7 +64,7 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 | **`B` Button** | **EMERGENCY ABORT** (Emergency upright dual-retro burn) |
 | **`X` Button** | **INSERT COIN** (+227 kg Fuel / +500 lb) |
 | **`Y` Button** | **CHANGE MISSION** (Cycle landing terrain site) |
-| **`A` Button** | **RESTART / BOOST** (Launch next flight or dual thrust) |
+| **`A` Button / Bumpers (`LB`/`RB`)** | **IMPULSE THRUSTER BOOST** (One-frame retro impulse boost to halt fall cold; launches next flight if crashed) |
 | **`START` Button** | **PAUSE / RESUME** |
 | **`BACK` Button** | **TOGGLE CRT GLOW / SCANLINES** |
 
@@ -75,6 +75,7 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 | **Q** | Fire Left Thruster (Induces rightward tilt) |
 | **E** | Fire Right Thruster (Induces leftward tilt) |
 | **Up Arrow / W / Space** | Fire Both Main Thrusters (Balanced vertical thrust) |
+| **Left Shift / Right Shift** | **Impulse Thruster Boost** (One-frame retro impulse boost to halt fall cold) |
 | **Left / Right Arrows or A / D** | Attitude Thrusters (RCS Yaw) |
 | **U** | **Toggle Unlimited Fuel** (Testing mode) |
 | **B** | Emergency Abort |

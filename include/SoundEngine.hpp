@@ -21,6 +21,7 @@ public:
     void playExplosion();
     void playLandFanfare();
     void playCoinSound();
+    void playImpulseBoost();
 
 private:
     static void audioCallback(void* userdata, Uint8* stream, int len);
@@ -35,6 +36,7 @@ private:
     std::atomic<float> m_impactTimer{0.0f};     // [s] Remaining impact sound duration
     std::atomic<float> m_impactIntensity{1.0f}; // [0.0 - 1.0, dimensionless] Impact volume scale
     std::atomic<float> m_explosionTimer{0.0f};  // [s] Explosion blast sound duration
+    std::atomic<float> m_boostTimer{0.0f};      // [s] Impulse thruster boost audio duration
     std::atomic<float> m_beepTimer{0.0f};       // [s] Warning tone duration
     std::atomic<float> m_beepFreq{880.0f};      // [Hz] Warning tone frequency
     std::atomic<float> m_fanfareTimer{0.0f};    // [s] Landing fanfare sound duration

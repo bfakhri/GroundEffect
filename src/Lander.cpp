@@ -120,6 +120,7 @@ void Lander::reset(float startX, float startY, float startFuel) {
     m_particles.clear();
     m_takeoffCooldown = 0.0f;
     m_landedSurfaceY = startY;
+    m_impulseBoostActive = false;
 }
 
 void Lander::resetLanded(float startX, float startY, float startFuel) {
@@ -142,8 +143,10 @@ bool Lander::isSafeAngle() const {
     return deg <= SAFE_MAX_ANGLE_DEG;
 }
 
-void Lander::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered,
+void Lander::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                     const Terrain& terrain, SoundEngine& sound) {
+    m_impulseBoostActive = false;
+
     if (m_state == LanderState::CRASHED) {
         // Update debris motion
         for (auto& d : m_debris) {
@@ -161,6 +164,23 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     }
 
     if (m_state == LanderState::LANDED) {
+        if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
+            static const float IMPULSE_DELTA_V = 41.0f * FT2M; // [m/s] 12.4968 m/s
+            m_state = LanderState::FLYING;
+            m_takeoffCooldown = 0.6f;
+            m_vy = -IMPULSE_DELTA_V;
+            m_y += m_vy * dt;
+            m_throttleLeft = 1.0f;
+            m_throttleRight = 1.0f;
+            m_impulseBoostActive = true;
+            sound.playImpulseBoost();
+            spawnImpulseParticles();
+            if (!m_unlimitedFuel) {
+                m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG);
+            }
+            return;
+        }
+
         // While landed, check if pilot applies sufficient upward thrust to take off
         float rawThrottleLeft = throttleLeft;
         float rawThrottleRight = throttleRight;
@@ -209,7 +229,7 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     if (m_impactFlashTimer > 0.0f) m_impactFlashTimer -= dt;
 
     // Flying physics
-    updatePhysics(dt, throttleLeft, throttleRight, rotateInput, abortTriggered, terrain, sound);
+    updatePhysics(dt, throttleLeft, throttleRight, rotateInput, abortTriggered, boostTriggered, terrain, sound);
 
     // Thruster particle debris animation and bounce physics
     spawnThrusterParticles(dt);
@@ -219,7 +239,8 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     checkTerrainCollision(terrain, sound);
 }
 
-void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered,
+void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput,
+                           bool abortTriggered, bool boostTriggered,
                            const Terrain& terrain, SoundEngine& sound) {
     // Check abort condition
     if (abortTriggered && !m_abortActive && (m_unlimitedFuel || m_fuel > 20.0f * LB2KG)) {
@@ -234,6 +255,29 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
     float rawThrottleLeft = throttleLeft;   // [0.0 - 1.0, dimensionless]
     float rawThrottleRight = throttleRight; // [0.0 - 1.0, dimensionless]
     float appliedRotate = rotateInput;      // [-1.0 to +1.0, dimensionless]
+
+    // Impulse Thruster one-frame boost via main thrusters
+    if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
+        m_impulseBoostActive = true;
+        // The main thruster direction is along the craft's longitudinal axis: (sin(angle), -cos(angle))
+        float thrustDirX = std::sin(m_angle);
+        float thrustDirY = -std::cos(m_angle);
+
+        // Impulse magnitude: 12.5 m/s (41 ft/s) - stops medium velocity fall cold
+        static const float IMPULSE_DELTA_V = 41.0f * FT2M; // [m/s] 12.4968 m/s
+        m_vx += thrustDirX * IMPULSE_DELTA_V;
+        m_vy += thrustDirY * IMPULSE_DELTA_V;
+
+        rawThrottleLeft = 1.0f;
+        rawThrottleRight = 1.0f;
+
+        spawnImpulseParticles();
+        sound.playImpulseBoost();
+
+        if (!m_unlimitedFuel) {
+            m_fuel = std::max(0.0f, m_fuel - 15.0f * LB2KG); // [kg] Propellant cost
+        }
+    }
 
     if (m_abortActive) {
         m_abortTimer -= dt; // [s]
@@ -583,6 +627,53 @@ void Lander::spawnThrusterParticles(float dt) {
 
     emitFromNozzle(-5.5f * FT2M, m_throttleLeft);
     emitFromNozzle( 5.5f * FT2M, m_throttleRight);
+}
+
+void Lander::spawnImpulseParticles() {
+    auto emitImpulseFromNozzle = [&](float nozzleLocalX) {
+        float cosA = std::cos(m_angle);
+        float sinA = std::sin(m_angle);
+        float exDx = -sinA;
+        float exDy =  cosA;
+        float perpDx =  cosA;
+        float perpDy =  sinA;
+
+        float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
+        float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
+
+        for (int i = 0; i < 35; ++i) {
+            if (m_particles.size() >= 800) break;
+            ThrusterParticle p;
+            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 3.5f * FT2M;
+            p.x = nozzleWx + perpDx * mouthOffset;
+            p.y = nozzleWy + perpDy * mouthOffset;
+
+            // Extra high burst velocity for impulse shockwave
+            float speed = (90.0f + (std::rand() % 70)) * FT2M; // 27 to 48 m/s
+            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.45f;
+            float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
+            float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
+
+            p.vx = m_vx * 0.2f + dirX * speed;
+            p.vy = m_vy * 0.2f + dirY * speed;
+            p.maxLife = 0.45f + ((float)(std::rand() % 35) / 100.0f);
+            p.life = p.maxLife;
+            p.bounceCount = 0;
+
+            int colorType = std::rand() % 3;
+            if (colorType == 0) {
+                p.color = {255, 255, 240, 255}; // Blazing white
+            } else if (colorType == 1) {
+                p.color = {255, 215, 90, 255};  // Brilliant yellow-gold
+            } else {
+                p.color = {255, 140, 30, 255};  // High-intensity orange
+            }
+            m_particles.push_back(p);
+        }
+    };
+
+    emitImpulseFromNozzle(-5.5f * FT2M);
+    emitImpulseFromNozzle( 5.5f * FT2M);
 }
 
 void Lander::updateThrusterParticles(float dt, const Terrain& terrain) {

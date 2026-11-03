@@ -221,7 +221,16 @@ void Game::update(float dt) {
     }
 
     // Update Lander with twin thruster inputs
-    m_lander.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, m_terrain, m_sound);
+    m_lander.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed, m_terrain, m_sound);
+
+    // If Impulse Thruster fired, give powerful rumble and visual telemetry notification
+    if (m_lander.wasImpulseFired()) {
+        m_input.setRumble(0.85f, 0.90f, 180);
+        m_impactRumbleHoldTimer = 0.18f;
+        m_statusMessage = "IMPULSE THRUSTER!";
+        m_statusSubMessage = "ONE-FRAME RETRO BOOST APPLIED";
+        m_messageTimer = 1.2f;
+    }
 
     // Process vehicle terrain impact events (vibrate controller and show damage alert)
     auto impact = m_lander.getAndClearImpactEvent();
@@ -572,7 +581,7 @@ void Game::renderControllerGuide() {
 
     // Control Mapping Banner
     std::string controls = m_throttleLockMode
-        ? "[LT/RT] LINKED THRUST  [LS] ROTATE  [T/LS.CLK] THROTTLE:LOCK  [B] ABORT  [U] FUEL  [A] RESTART"
-        : "[LT] L.THRUST  [RT] R.THRUST  [LS] ROTATE  [T/LS.CLK] THROTTLE:INDEP  [B] ABORT  [U] FUEL  [A] RESTART";
+        ? "[LT/RT] LINKED THRUST  [LS] ROTATE  [A/SHIFT] IMPULSE BOOST  [B] ABORT  [U] FUEL"
+        : "[LT] L.THRUST  [RT] R.THRUST  [LS] ROTATE  [A/SHIFT] IMPULSE BOOST  [B] ABORT  [U] FUEL";
     VectorFont::drawText(m_renderer, controls, 25.0f, baseY, scale, guideColor, m_crtGlow);
 }

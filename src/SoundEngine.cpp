@@ -73,6 +73,10 @@ void SoundEngine::playCoinSound() {
     m_coinTimer.store(0.35f); // [s]
 }
 
+void SoundEngine::playImpulseBoost() {
+    m_boostTimer.store(0.28f); // [s] Punchy rocket boost
+}
+
 float SoundEngine::getNoise() {
     m_rngState = m_rngState * 1664525u + 1013904223u;
     return ((float)(m_rngState >> 16) / 32768.0f) - 1.0f;
@@ -97,6 +101,7 @@ void SoundEngine::generateAudio(float* output, int numSamples) {
     float beepFreq = m_beepFreq.load();
     float fanfareTime = m_fanfareTimer.load();
     float coinTime = m_coinTimer.load();
+    float boostTime = m_boostTimer.load();
 
     for (int i = 0; i < numSamples; ++i) {
         float sample = 0.0f;
@@ -171,6 +176,14 @@ void SoundEngine::generateAudio(float* output, int numSamples) {
             coinTime -= dt; // [s]
         }
 
+        // 8. Impulse Thruster Boost blast (low-frequency punch + noisy rocket whoosh)
+        if (boostTime > 0.0f) {
+            float env = boostTime / 0.28f;
+            float boostNoise = getNoise() * 0.45f;
+            sample += boostNoise * env;
+            boostTime -= dt; // [s]
+        }
+
         // Clip to avoid distortion
         output[i] = std::clamp(sample, -1.0f, 1.0f);
     }
@@ -181,4 +194,5 @@ void SoundEngine::generateAudio(float* output, int numSamples) {
     m_beepTimer.store(std::max(0.0f, beepTime));
     m_fanfareTimer.store(std::max(0.0f, fanfareTime));
     m_coinTimer.store(std::max(0.0f, coinTime));
+    m_boostTimer.store(std::max(0.0f, boostTime));
 }

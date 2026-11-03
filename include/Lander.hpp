@@ -41,7 +41,7 @@ public:
 
     void reset(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg] (converted from 750.0 lb)
     void resetLanded(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg]
-    void update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered,
+    void update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                 const Terrain& terrain, SoundEngine& sound); // dt [s], throttle in [0.0 - 1.0], rotateInput in [-1.0 to +1.0]
 
     void render(SDL_Renderer* renderer, const Camera2D& cam, float glow = 1.0f);
@@ -60,6 +60,7 @@ public:
     void toggleUnlimitedFuel() { m_unlimitedFuel = !m_unlimitedFuel; }
     float getDamage() const { return m_damage; }         // [%] Structural damage accrued (0.0% to 100.0%)
     float getHull() const { return std::max(0.0f, 100.0f - m_damage); } // [%] Structural integrity remaining
+    bool wasImpulseFired() const { return m_impulseBoostActive; }
     ImpactEvent getAndClearImpactEvent() {
         ImpactEvent ev = m_lastImpact;
         m_lastImpact.occurred = false;
@@ -81,16 +82,18 @@ public:
     bool isSafeAngle() const;
 
 private:
-    void updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered,
+    void updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                        const Terrain& terrain, SoundEngine& sound);
     void checkTerrainCollision(const Terrain& terrain, SoundEngine& sound);
     void triggerCrash(SoundEngine& sound);
     void triggerLanding(int multiplier, float hitY, SoundEngine& sound);
     void spawnThrusterParticles(float dt);
+    void spawnImpulseParticles();
     void updateThrusterParticles(float dt, const Terrain& terrain);
 
     // State
     LanderState m_state = LanderState::FLYING;
+    bool m_impulseBoostActive = false; // [flag] One-frame impulse thruster fired
     float m_landedSurfaceY = 0.0f;   // [m] Surface Y datum when landed
     float m_takeoffCooldown = 0.0f;  // [s] Cooldown timer after takeoff to prevent re-landing immediately
     float m_x = 304.8f;              // [m] Craft horizontal position X (converted from 1000.0 ft)

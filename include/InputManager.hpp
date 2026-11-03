@@ -9,6 +9,7 @@ struct InputState {
     float throttle = 0.0f;       // [0.0 - 1.0, dimensionless] Combined average throttle: (throttleLeft + throttleRight) * 0.5f
     float rotateAxis = 0.0f;     // [-1.0 to +1.0, dimensionless] Yaw rotation input (-1.0 left to +1.0 right)
     bool abortPressed = false;   // Emergency abort (B button or B key)
+    bool boostPressed = false;   // Impulse Thruster boost (A button on controller or Left Shift on keyboard)
     bool restartPressed = false; // Restart game (A button or R key)
     bool manualRestartPressed = false; // Manual restart (R key specifically)
     bool addFuelPressed = false; // Insert coin / add fuel (X button or C/F key)
@@ -46,6 +47,7 @@ private:
 
     // Button edge detection
     bool m_prevAbortBtn = false;
+    bool m_prevBoostBtn = false;
     bool m_prevRestartBtn = false;
     bool m_prevAddFuelBtn = false;
     bool m_prevNextSiteBtn = false;
@@ -69,6 +71,7 @@ private:
     bool m_keyNextSite = false;
     bool m_keyPause = false;
     bool m_keyGlow = false;
+    bool m_keyShift = false;
 
     bool m_prevKeyU = false;
     bool m_prevKeyT = false;
@@ -78,4 +81,5 @@ private:
     bool m_prevKeyNextSite = false;
     bool m_prevKeyPause = false;
     bool m_prevKeyGlow = false;
+    bool m_prevKeyShift = false;
 };

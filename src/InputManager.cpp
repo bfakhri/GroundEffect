@@ -118,6 +118,8 @@ void InputManager::update() {
                         case SDLK_n:      m_keyNextSite = true; break;
                         case SDLK_p:      m_keyPause = true; break;
                         case SDLK_g:      m_keyGlow = true; break;
+                        case SDLK_LSHIFT:
+                        case SDLK_RSHIFT: m_keyShift = true; break;
                     }
                 }
                 break;
@@ -144,6 +146,8 @@ void InputManager::update() {
                     case SDLK_n:      m_keyNextSite = false; break;
                     case SDLK_p:      m_keyPause = false; break;
                     case SDLK_g:      m_keyGlow = false; break;
+                    case SDLK_LSHIFT:
+                    case SDLK_RSHIFT: m_keyShift = false; break;
                 }
                 break;
         }
@@ -154,6 +158,7 @@ void InputManager::update() {
     float ctrlThrottleRight = 0.0f;
     float ctrlRotate = 0.0f;
     bool btnAbort = false;
+    bool btnBoost = false;
     bool btnRestart = false;
     bool btnAddFuel = false;
     bool btnNextSite = false;
@@ -174,7 +179,12 @@ void InputManager::update() {
             ctrlThrottleRight = (float)(rtValue - TRIGGER_DEADZONE) / (32767.0f - TRIGGER_DEADZONE);
         }
 
-        // 'A' Button: also provides full thrust to both engines if pressed (or acts as select/restart)
+        // 'A' Button: also provides full thrust to both engines if pressed (or acts as select/restart/boost)
+        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A) ||
+            SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
+            SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+            btnBoost = true;
+        }
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A)) {
             ctrlThrottleLeft = std::max(ctrlThrottleLeft, 0.90f);
             ctrlThrottleRight = std::max(ctrlThrottleRight, 0.90f);
@@ -239,6 +249,9 @@ void InputManager::update() {
     m_state.rotateAxis = std::clamp(ctrlRotate + kbRotate, -1.0f, 1.0f);
 
     // Edge triggers (press on rising edge)
+    if ((btnBoost && !m_prevBoostBtn) || (m_keyShift && !m_prevKeyShift)) {
+        m_state.boostPressed = true;
+    }
     if ((btnAbort && !m_prevAbortBtn) || (m_keyAbort && !m_prevKeyAbort)) {
         m_state.abortPressed = true;
     }
@@ -268,6 +281,7 @@ void InputManager::update() {
     }
 
     m_prevAbortBtn = btnAbort;
+    m_prevBoostBtn = btnBoost;
     m_prevRestartBtn = btnRestart;
     m_prevAddFuelBtn = btnAddFuel;
     m_prevNextSiteBtn = btnNextSite;
@@ -283,4 +297,5 @@ void InputManager::update() {
     m_prevKeyNextSite = m_keyNextSite;
     m_prevKeyPause = m_keyPause;
     m_prevKeyGlow = m_keyGlow;
+    m_prevKeyShift = m_keyShift;
 }
