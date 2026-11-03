@@ -117,6 +117,7 @@ void Lander::reset(float startX, float startY, float startFuel) {
     m_rcsPuffLeft = 0.0f;      // [s]
     m_rcsPuffRight = 0.0f;     // [s]
     m_debris.clear();
+    m_particles.clear();
     m_takeoffCooldown = 0.0f;
     m_landedSurfaceY = startY;
 }
@@ -154,6 +155,7 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
             d.angle += d.angularVel * dt;
             d.life -= dt * 0.5f;
         }
+        updateThrusterParticles(dt, terrain);
         sound.setThrust(0.0f);
         return;
     }
@@ -178,6 +180,9 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
             float fuelUsed = (totalThrottle * 0.5f) * FUEL_BURN_RATE * dt;
             m_fuel = std::max(0.0f, m_fuel - fuelUsed);
         }
+
+        spawnThrusterParticles(dt);
+        updateThrusterParticles(dt, terrain);
 
         float totalThrustAccel = totalThrottle * THRUST_PER_ENGINE;
         float ay = -totalThrustAccel + GRAVITY;
@@ -205,6 +210,10 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
 
     // Flying physics
     updatePhysics(dt, throttleLeft, throttleRight, rotateInput, abortTriggered, terrain, sound);
+
+    // Thruster particle debris animation and bounce physics
+    spawnThrusterParticles(dt);
+    updateThrusterParticles(dt, terrain);
 
     // Collision check against terrain
     checkTerrainCollision(terrain, sound);
@@ -519,6 +528,128 @@ void Lander::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
     sound.playLandFanfare();
 }
 
+void Lander::spawnThrusterParticles(float dt) {
+    if (m_state == LanderState::CRASHED) return;
+    if (!m_unlimitedFuel && m_fuel <= 0.0f) return;
+
+    auto emitFromNozzle = [&](float nozzleLocalX, float throttle) {
+        if (throttle < 0.02f) return;
+        float spawnRate = 220.0f * throttle; // [particles/s]
+        int numParticles = (int)(spawnRate * dt);
+        if (((float)std::rand() / (float)RAND_MAX) < (spawnRate * dt - numParticles)) {
+            numParticles++;
+        }
+
+        float cosA = std::cos(m_angle);
+        float sinA = std::sin(m_angle);
+        float exDx = -sinA;
+        float exDy =  cosA;
+        float perpDx =  cosA;
+        float perpDy =  sinA;
+
+        float nozzleWx = m_x + (nozzleLocalX * cosA - (5.0f * FT2M) * sinA);
+        float nozzleWy = m_y + (nozzleLocalX * sinA + (5.0f * FT2M) * cosA);
+
+        for (int i = 0; i < numParticles; ++i) {
+            if (m_particles.size() >= 600) break;
+            ThrusterParticle p;
+            float mouthOffset = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 2.8f * FT2M;
+            p.x = nozzleWx + perpDx * mouthOffset;
+            p.y = nozzleWy + perpDy * mouthOffset;
+
+            // Exhaust velocity
+            float speed = (65.0f + 60.0f * throttle + (std::rand() % 35)) * FT2M;
+            float coneAngle = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * 0.32f;
+            float dirX = exDx * std::cos(coneAngle) + perpDx * std::sin(coneAngle);
+            float dirY = exDy * std::cos(coneAngle) + perpDy * std::sin(coneAngle);
+
+            p.vx = m_vx * 0.35f + dirX * speed;
+            p.vy = m_vy * 0.35f + dirY * speed;
+            p.maxLife = 0.35f + ((float)(std::rand() % 40) / 100.0f);
+            p.life = p.maxLife;
+            p.bounceCount = 0;
+
+            int colorType = std::rand() % 4;
+            if (colorType == 0) {
+                p.color = {255, 245, 210, 255}; // Bright white-gold core spark
+            } else if (colorType <= 2) {
+                p.color = {255, 175, 40, 255};  // Vibrant vector flame orange
+            } else {
+                p.color = {255, 100, 25, 255};  // Fiery reddish ember
+            }
+            m_particles.push_back(p);
+        }
+    };
+
+    emitFromNozzle(-5.5f * FT2M, m_throttleLeft);
+    emitFromNozzle( 5.5f * FT2M, m_throttleRight);
+}
+
+void Lander::updateThrusterParticles(float dt, const Terrain& terrain) {
+    for (auto& p : m_particles) {
+        if (p.life <= 0.0f) continue;
+
+        float oldX = p.x;
+        float oldY = p.y;
+
+        p.vy += GRAVITY * 0.25f * dt;
+        p.vx *= (1.0f - 0.35f * dt);
+        p.vy *= (1.0f - 0.35f * dt);
+
+        float nextX = p.x + p.vx * dt;
+        float nextY = p.y + p.vy * dt;
+
+        float moveDx = nextX - oldX;
+        float moveDy = nextY - oldY;
+        float moveDist = std::sqrt(moveDx * moveDx + moveDy * moveDy);
+
+        bool bounced = false;
+        if (moveDist > 1e-4f) {
+            float dirX = moveDx / moveDist;
+            float dirY = moveDy / moveDist;
+
+            Terrain::RayHit hit;
+            if (terrain.castRay(oldX, oldY, dirX, dirY, moveDist, hit)) {
+                float dot = p.vx * hit.normalX + p.vy * hit.normalY;
+                if (dot < 0.0f) {
+                    float restitution = 0.58f;
+                    float randScatter = (((float)(std::rand() % 100) / 100.0f) - 0.5f) * 4.0f * FT2M;
+                    p.vx = (p.vx - (1.0f + restitution) * dot * hit.normalX) + hit.normalY * randScatter;
+                    p.vy = (p.vy - (1.0f + restitution) * dot * hit.normalY) - hit.normalX * randScatter;
+
+                    p.x = oldX + dirX * hit.dist + hit.normalX * 0.15f;
+                    p.y = oldY + dirY * hit.dist + hit.normalY * 0.15f;
+                    p.bounceCount++;
+                    p.life *= 0.85f;
+                    bounced = true;
+                }
+            }
+        }
+
+        if (!bounced) {
+            p.x = nextX;
+            p.y = nextY;
+            float surfY = terrain.getSurfaceHeightAt(p.x);
+            if (p.y >= surfY) {
+                p.y = surfY - 0.1f;
+                if (p.vy > 0.0f) {
+                    p.vy = -p.vy * 0.5f;
+                    p.bounceCount++;
+                }
+            }
+        }
+
+        p.life -= dt;
+    }
+
+    m_particles.erase(
+        std::remove_if(m_particles.begin(), m_particles.end(), [](const ThrusterParticle& p) {
+            return p.life <= 0.0f;
+        }),
+        m_particles.end()
+    );
+}
+
 void Lander::triggerCrash(SoundEngine& sound) {
     m_state = LanderState::CRASHED;
     sound.playExplosion();
@@ -556,8 +687,26 @@ void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
     } else if (m_damage > 65.0f && std::fmod(m_flameFlicker, 6.0f) < 1.5f) {
         craftColor = {255, 190, 140, 255}; // Damaged hull warning tint
     }
-    SDL_Color flameColor = {255, 180, 50, 255}; // Vector orange/yellow flame
     SDL_Color rcsColor = {100, 220, 255, 255};  // Vector cyan for attitude jets
+
+    // 1. Draw Expelled Thruster Particle Debris (visible in all states including lingering after crash)
+    for (const auto& p : m_particles) {
+        if (p.life <= 0.0f) continue;
+        float lifeRatio = std::clamp(p.life / p.maxLife, 0.0f, 1.0f);
+        Uint8 alpha = (Uint8)(lifeRatio * 255.0f);
+
+        SDL_Color col = p.color;
+        col.a = alpha;
+
+        float speed = std::sqrt(p.vx * p.vx + p.vy * p.vy);
+        float streakLen = std::clamp(speed * 0.025f, 0.2f * FT2M, 1.2f * FT2M);
+        float sx1 = p.x;
+        float sy1 = p.y;
+        float sx2 = p.x - (p.vx / (speed + 1e-4f)) * streakLen;
+        float sy2 = p.y - (p.vy / (speed + 1e-4f)) * streakLen;
+
+        VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, glow * 1.3f, 1);
+    }
 
     if (m_state == LanderState::CRASHED) {
         // Draw tumbling debris
@@ -573,7 +722,7 @@ void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
     float cosA = std::cos(m_angle);
     float sinA = std::sin(m_angle);
 
-    // 1. Draw Craft Wireframe lines
+    // 2. Draw Craft Wireframe lines
     for (const auto& line : m_craftLines) {
         float wx1 = m_x + (line.x1 * cosA - line.y1 * sinA); // [m]
         float wy1 = m_y + (line.x1 * sinA + line.y1 * cosA); // [m]
@@ -583,45 +732,39 @@ void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
         VectorRenderer::drawLineWorld(renderer, cam, wx1, wy1, wx2, wy2, craftColor, glow, 2);
     }
 
-    // 2. Draw Dynamic Twin Main Thruster Flames
+    // 3. Draw Steady (Non-Pulsing) Nozzle Core Plume
     auto wPoint = [&](float lx, float ly, float& wx, float& wy) {
         wx = m_x + (lx * cosA - ly * sinA); // [m]
         wy = m_y + (lx * sinA + ly * cosA); // [m]
     };
 
-    auto drawThrusterFlame = [&](float nozzleCenterX, float throttle, float flickerPhase) {
-        float flameLength = (12.0f * FT2M + throttle * 28.0f * FT2M) * (0.85f + 0.3f * std::sin(m_flameFlicker + flickerPhase)); // [m]
-        float flameWidth = 3.5f * FT2M * (0.8f + 0.2f * std::cos((m_flameFlicker + flickerPhase) * 1.5f));                        // [m]
+    auto drawSteadyNozzleFlare = [&](float nozzleCenterX, float throttle) {
+        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M); // [m] Steady length proportional to throttle (no pulsation)
+        float flameWidth = 2.4f * FT2M;
 
         float f1x = nozzleCenterX - flameWidth, f1y = 5.0f * FT2M; // [m]
         float f2x = nozzleCenterX + flameWidth, f2y = 5.0f * FT2M; // [m]
         float f3x = nozzleCenterX,              f3y = 5.0f * FT2M + flameLength;
-        float f4x = nozzleCenterX - flameWidth * 0.45f, f4y = 5.0f * FT2M + flameLength * 0.6f;
-        float f5x = nozzleCenterX + flameWidth * 0.45f, f5y = 5.0f * FT2M + flameLength * 0.6f;
 
-        float w1x, w1y, w2x, w2y, w3x, w3y, w4x, w4y, w5x, w5y; // [m]
+        float w1x, w1y, w2x, w2y, w3x, w3y;
         wPoint(f1x, f1y, w1x, w1y);
         wPoint(f2x, f2y, w2x, w2y);
         wPoint(f3x, f3y, w3x, w3y);
-        wPoint(f4x, f4y, w4x, w4y);
-        wPoint(f5x, f5y, w5x, w5y);
 
-        // Jagged vector flame lines
-        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w4x, w4y, flameColor, glow * 1.4f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w4x, w4y, w3x, w3y, flameColor, glow * 1.4f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w3x, w3y, w5x, w5y, flameColor, glow * 1.4f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w5x, w5y, w2x, w2y, flameColor, glow * 1.4f, 2);
-        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w3x, w3y, flameColor, glow * 1.8f, 1);
+        SDL_Color flareColor = {255, 235, 160, 255};
+        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w3x, w3y, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld(renderer, cam, w2x, w2y, w3x, w3y, flareColor, glow * 1.5f, 2);
+        VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w2x, w2y, flareColor, glow * 1.2f, 1);
     };
 
-    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state == LanderState::FLYING) {
-        drawThrusterFlame(-5.5f * FT2M, m_throttleLeft, 0.0f); // [m] Left nozzle
+    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != LanderState::CRASHED) {
+        drawSteadyNozzleFlare(-5.5f * FT2M, m_throttleLeft); // [m] Left nozzle
     }
-    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state == LanderState::FLYING) {
-        drawThrusterFlame(5.5f * FT2M, m_throttleRight, 1.8f);  // [m] Right nozzle
+    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != LanderState::CRASHED) {
+        drawSteadyNozzleFlare(5.5f * FT2M, m_throttleRight);  // [m] Right nozzle
     }
 
-    // 3. Draw RCS Attitude Thruster Puffs
+    // 4. Draw RCS Attitude Thruster Puffs
     if (m_rcsPuffLeft > 0.0f && m_state == LanderState::FLYING) {
         float px1 = m_x + (-14.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
         float py1 = m_y + (-14.0f * FT2M * sinA + (-5.0f * FT2M) * cosA); // [m]

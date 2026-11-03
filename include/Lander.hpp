@@ -20,6 +20,15 @@ struct DebrisLine {
     float life;         // [s] Remaining debris lifetime
 };
 
+struct ThrusterParticle {
+    float x, y;          // [m] Position in world space
+    float vx, vy;        // [m/s] Linear velocity
+    float life;          // [s] Remaining lifetime
+    float maxLife;       // [s] Initial total lifetime
+    int bounceCount = 0; // [count] Number of terrain bounces
+    SDL_Color color;     // Base color
+};
+
 struct ImpactEvent {
     bool occurred = false;
     float speed = 0.0f;           // [m/s] Impact speed magnitude
@@ -77,6 +86,8 @@ private:
     void checkTerrainCollision(const Terrain& terrain, SoundEngine& sound);
     void triggerCrash(SoundEngine& sound);
     void triggerLanding(int multiplier, float hitY, SoundEngine& sound);
+    void spawnThrusterParticles(float dt);
+    void updateThrusterParticles(float dt, const Terrain& terrain);
 
     // State
     LanderState m_state = LanderState::FLYING;
@@ -112,6 +123,7 @@ private:
 
     // Vector Debris
     std::vector<DebrisLine> m_debris;
+    std::vector<ThrusterParticle> m_particles;
 
     // Craft Local Geometry Lines (relative to center of mass)
     struct LocalLine {
