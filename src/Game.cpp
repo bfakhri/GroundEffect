@@ -89,11 +89,26 @@ void Game::shutdown() {
 
 void Game::initStars() {
     m_stars.clear();
-    for (int i = 0; i < 90; ++i) {
+    auto randFloat = [](float minVal, float maxVal) {
+        float r = (float)std::rand() / (float)RAND_MAX;
+        return minVal + r * (maxVal - minVal);
+    };
+
+    // 1. Dense local starfield around the terrain and low altitude (-2,000 ft to 2,200 ft)
+    for (int i = 0; i < 500; ++i) {
         Star s;
-        s.x = (float)(std::rand() % 4800) * FT2M; // [m] Star position across world width
-        s.y = (float)(std::rand() % 1600) * FT2M; // [m] Star position across world height
-        s.brightness = 0.3f + ((std::rand() % 70) / 100.0f); // [0.0 - 1.0, dimensionless]
+        s.x = randFloat(-400.0f * FT2M, 5200.0f * FT2M);
+        s.y = randFloat(-2000.0f * FT2M, 2200.0f * FT2M);
+        s.brightness = randFloat(0.25f, 1.0f);
+        m_stars.push_back(s);
+    }
+
+    // 2. High-altitude deep space starfield (-200,000 ft to -2,000 ft)
+    for (int i = 0; i < 1500; ++i) {
+        Star s;
+        s.x = randFloat(-400.0f * FT2M, 5200.0f * FT2M);
+        s.y = randFloat(-200000.0f * FT2M, -2000.0f * FT2M);
+        s.brightness = randFloat(0.25f, 1.0f);
         m_stars.push_back(s);
     }
 }
@@ -361,14 +376,24 @@ void Game::render() {
     SDL_RenderClear(m_renderer);
 
     // 1. Background Stars
-    SDL_Color starColor = {180, 200, 220, 255};
+    SDL_Color starColor = {190, 215, 240, 255};
     for (const auto& star : m_stars) {
         float sx, sy;
         m_camera.worldToScreen(star.x, star.y, sx, sy);
-        if (sx >= 0 && sx < m_screenWidth && sy >= 0 && sy < m_screenHeight) {
-            Uint8 a = (Uint8)(star.brightness * 200.0f);
+        if (sx >= -2 && sx < m_screenWidth + 2 && sy >= -2 && sy < m_screenHeight + 2) {
+            Uint8 a = (Uint8)(star.brightness * 220.0f);
             SDL_SetRenderDrawColor(m_renderer, starColor.r, starColor.g, starColor.b, a);
             SDL_RenderDrawPoint(m_renderer, (int)sx, (int)sy);
+
+            // Subtle cross bloom for brighter stars
+            if (star.brightness > 0.85f) {
+                Uint8 bloomA = (Uint8)(a * 0.45f);
+                SDL_SetRenderDrawColor(m_renderer, starColor.r, starColor.g, starColor.b, bloomA);
+                SDL_RenderDrawPoint(m_renderer, (int)sx - 1, (int)sy);
+                SDL_RenderDrawPoint(m_renderer, (int)sx + 1, (int)sy);
+                SDL_RenderDrawPoint(m_renderer, (int)sx, (int)sy - 1);
+                SDL_RenderDrawPoint(m_renderer, (int)sx, (int)sy + 1);
+            }
         }
     }
 
