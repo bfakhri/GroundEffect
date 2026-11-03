@@ -5,7 +5,7 @@
 #include "Terrain.hpp"
 #include <vector>
 
-enum class LanderState {
+enum class BattleshipState {
     FLYING,
     LANDED,
     CRASHED
@@ -35,9 +35,9 @@ struct ImpactEvent {
     float damageInflicted = 0.0f; // [%] Structural damage percentage accrued
 };
 
-class Lander {
+class Battleship {
 public:
-    Lander();
+    Battleship();
 
     void reset(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg] (converted from 750.0 lb)
     void resetLanded(float startX, float startY, float startFuel = 340.194f); // startX [m], startY [m], startFuel [kg]
@@ -66,7 +66,7 @@ public:
         m_lastImpact.occurred = false;
         return ev;
     }
-    LanderState getState() const { return m_state; }
+    BattleshipState getState() const { return m_state; }
     int getLastPadMultiplier() const { return m_lastPadMultiplier; }    // [dimensionless] (2x, 3x, 4x, 5x)
     float getThrottle() const { return (m_throttleLeft + m_throttleRight) * 0.5f; } // [0.0 - 1.0, dimensionless]
     float getThrottleLeft() const { return m_throttleLeft; }            // [0.0 - 1.0, dimensionless]
@@ -92,7 +92,7 @@ private:
     void updateThrusterParticles(float dt, const Terrain& terrain);
 
     // State
-    LanderState m_state = LanderState::FLYING;
+    BattleshipState m_state = BattleshipState::FLYING;
     bool m_impulseBoostActive = false; // [flag] One-frame impulse thruster fired
     float m_landedSurfaceY = 0.0f;   // [m] Surface Y datum when landed
     float m_takeoffCooldown = 0.0f;  // [s] Cooldown timer after takeoff to prevent re-landing immediately

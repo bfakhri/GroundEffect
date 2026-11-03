@@ -50,13 +50,13 @@ bool Game::init(int width, int height) {
     if (!pads.empty()) {
         float startX = (pads[0].x1 + pads[0].x2) * 0.5f;
         float startY = pads[0].y - 12.0f * FT2M;
-        m_lander.resetLanded(startX, startY);
+        m_battleship.resetLanded(startX, startY);
     }
 
     m_camera.screenWidth = m_screenWidth;   // [px]
     m_camera.screenHeight = m_screenHeight; // [px]
-    m_camera.x = m_lander.getX();           // [m]
-    m_camera.y = m_lander.getY();           // [m]
+    m_camera.x = m_battleship.getX();           // [m]
+    m_camera.y = m_battleship.getY();           // [m]
     m_camera.zoom = 2.10f / FT2M;           // [px/m] (high-magnification closeup view when landed)
 
     initStars();
@@ -139,7 +139,7 @@ void Game::handleInput() {
 
     // Insert Coin / Add Fuel
     if (state.addFuelPressed) {
-        m_lander.addFuel(500.0f * LB2KG); // [kg] Adds 226.8 kg of propellant (converted from 500.0 lb)
+        m_battleship.addFuel(500.0f * LB2KG); // [kg] Adds 226.8 kg of propellant (converted from 500.0 lb)
         m_coinsInserted++;
         m_sound.playCoinSound();
         m_input.setRumble(0.0f, 0.4f, 150); // [ms]
@@ -150,9 +150,9 @@ void Game::handleInput() {
 
     // Toggle Unlimited Fuel (Testing Mode)
     if (state.toggleUnlimitedFuelPressed) {
-        m_lander.toggleUnlimitedFuel();
+        m_battleship.toggleUnlimitedFuel();
         m_sound.playBeep(1100.0f, 0.08f); // [Hz], [s]
-        m_statusMessage = m_lander.isUnlimitedFuel() ? "UNLIMITED FUEL: ACTIVE" : "UNLIMITED FUEL: OFF";
+        m_statusMessage = m_battleship.isUnlimitedFuel() ? "UNLIMITED FUEL: ACTIVE" : "UNLIMITED FUEL: OFF";
         m_statusSubMessage = "PRESS [U] TO TOGGLE TESTING FUEL";
         m_messageTimer = 2.5f; // [s]
     }
@@ -174,10 +174,10 @@ void Game::handleInput() {
         if (!pads.empty()) {
             float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
             float padSurfaceY = pads[0].y - 12.0f * FT2M;
-            m_lander.resetLanded(padCenterX, padSurfaceY, std::max(m_lander.getFuel(), 600.0f * LB2KG));
+            m_battleship.resetLanded(padCenterX, padSurfaceY, std::max(m_battleship.getFuel(), 600.0f * LB2KG));
         }
-        m_camera.x = m_lander.getX();
-        m_camera.y = m_lander.getY();
+        m_camera.x = m_battleship.getX();
+        m_camera.y = m_battleship.getY();
         m_camera.zoom = 2.10f / FT2M;
         m_statusMessage = "MISSION: " + m_terrain.getSiteName();
         m_statusSubMessage = "LANDED ON PAD - READY FOR LAUNCH";
@@ -186,16 +186,16 @@ void Game::handleInput() {
 
     // Restart mission
     if (state.restartPressed) {
-        if (m_lander.getState() == LanderState::CRASHED || (m_lander.getState() == LanderState::LANDED && state.manualRestartPressed)) {
-            float nextFuel = (m_lander.getFuel() < 250.0f * LB2KG) ? 750.0f * LB2KG : m_lander.getFuel(); // [kg]
+        if (m_battleship.getState() == BattleshipState::CRASHED || (m_battleship.getState() == BattleshipState::LANDED && state.manualRestartPressed)) {
+            float nextFuel = (m_battleship.getFuel() < 250.0f * LB2KG) ? 750.0f * LB2KG : m_battleship.getFuel(); // [kg]
             const auto& pads = m_terrain.getLandingPads();
             if (!pads.empty()) {
                 float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
                 float padSurfaceY = pads[0].y - 12.0f * FT2M;
-                m_lander.resetLanded(padCenterX, padSurfaceY, nextFuel);
+                m_battleship.resetLanded(padCenterX, padSurfaceY, nextFuel);
             }
-            m_camera.x = m_lander.getX();
-            m_camera.y = m_lander.getY();
+            m_camera.x = m_battleship.getX();
+            m_camera.y = m_battleship.getY();
             m_camera.zoom = 2.10f / FT2M;
             m_statusMessage = "READY FOR LAUNCH";
             m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
@@ -220,11 +220,11 @@ void Game::update(float dt) {
         tRight = linked;
     }
 
-    // Update Lander with twin thruster inputs
-    m_lander.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed, m_terrain, m_sound);
+    // Update Battleship with twin thruster inputs
+    m_battleship.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed, m_terrain, m_sound);
 
     // If Impulse Thruster fired, give powerful rumble and visual telemetry notification
-    if (m_lander.wasImpulseFired()) {
+    if (m_battleship.wasImpulseFired()) {
         m_input.setRumble(0.85f, 0.90f, 180);
         m_impactRumbleHoldTimer = 0.18f;
         m_statusMessage = "IMPULSE THRUSTER!";
@@ -233,7 +233,7 @@ void Game::update(float dt) {
     }
 
     // Process vehicle terrain impact events (vibrate controller and show damage alert)
-    auto impact = m_lander.getAndClearImpactEvent();
+    auto impact = m_battleship.getAndClearImpactEvent();
     if (impact.occurred) {
         float speed = impact.speed; // [m/s]
         // Vibration intensity proportional to impact velocity (0.35 to 1.0)
@@ -246,36 +246,36 @@ void Game::update(float dt) {
         // Visual alert on HUD
         std::ostringstream ss;
         ss << "IMPACT! +" << (int)std::round(impact.damageInflicted) 
-           << "% DMG  [HULL " << (int)std::round(m_lander.getHull()) << "%]";
+           << "% DMG  [HULL " << (int)std::round(m_battleship.getHull()) << "%]";
         m_statusMessage = ss.str();
-        m_statusSubMessage = (m_lander.getHull() < 30.0f) ? "CRITICAL STRUCTURAL DAMAGE!" : "CAUTION: STRUCTURAL INTEGRITY WEAKENED";
+        m_statusSubMessage = (m_battleship.getHull() < 30.0f) ? "CRITICAL STRUCTURAL DAMAGE!" : "CAUTION: STRUCTURAL INTEGRITY WEAKENED";
         m_messageTimer = 1.8f; // [s]
     }
 
     // Controller haptic rumble based on dual thrusters and events
-    if (m_lander.getState() == LanderState::FLYING) {
+    if (m_battleship.getState() == BattleshipState::FLYING) {
         if (m_impactRumbleHoldTimer > 0.0f) {
             m_impactRumbleHoldTimer -= dt; // [s]
         } else {
-            float tL = m_lander.getThrottleLeft();
-            float tR = m_lander.getThrottleRight();
+            float tL = m_battleship.getThrottleLeft();
+            float tR = m_battleship.getThrottleRight();
             if (tL > 0.05f || tR > 0.05f) {
                 // Proportional dual rumble: left trigger fires left low-freq motor, right trigger fires right high-freq motor
                 m_input.setRumble(tL * 0.40f, tR * 0.40f, 60); // [ms]
             }
         }
-    } else if (m_lander.getState() == LanderState::CRASHED) {
+    } else if (m_battleship.getState() == BattleshipState::CRASHED) {
         // Strong crash shake
         m_input.setRumble(0.85f, 0.95f, 120); // [ms]
     }
 
     // Calculate altitude above surface [m]
-    float surfaceY = m_terrain.getSurfaceHeightAt(m_lander.getX()); // [m]
-    float altitude = std::max(0.0f, surfaceY - (m_lander.getY() + 12.0f * FT2M)); // [m] (3.66 m clearance to footpads)
+    float surfaceY = m_terrain.getSurfaceHeightAt(m_battleship.getX()); // [m]
+    float altitude = std::max(0.0f, surfaceY - (m_battleship.getY() + 12.0f * FT2M)); // [m] (3.66 m clearance to footpads)
 
     // Warning sound when low altitude and descent rate is dangerous
-    if (m_lander.getState() == LanderState::FLYING && altitude < 250.0f * FT2M) { // [m] Below 76.2 m
-        if (!m_lander.isSafeSpeed() || !m_lander.isSafeAngle()) {
+    if (m_battleship.getState() == BattleshipState::FLYING && altitude < 250.0f * FT2M) { // [m] Below 76.2 m
+        if (!m_battleship.isSafeSpeed() || !m_battleship.isSafeAngle()) {
             m_warningBeepCooldown -= dt; // [s]
             if (m_warningBeepCooldown <= 0.0f) {
                 m_sound.playBeep(1400.0f, 0.06f); // [Hz], [s]
@@ -285,10 +285,10 @@ void Game::update(float dt) {
     }
 
     // Check status changes
-    if (m_lander.getState() == LanderState::LANDED) {
+    if (m_battleship.getState() == BattleshipState::LANDED) {
         if (!m_scoredThisTouchdown) {
-            int mult = m_lander.getLastPadMultiplier();
-            int points = 50 * mult + (int)((m_lander.getFuel() / LB2KG) * 0.25f) * mult;
+            int mult = m_battleship.getLastPadMultiplier();
+            int points = 50 * mult + (int)((m_battleship.getFuel() / LB2KG) * 0.25f) * mult;
             m_score += points;
             if (m_score > m_highScore) m_highScore = m_score;
 
@@ -304,7 +304,7 @@ void Game::update(float dt) {
         m_scoredThisTouchdown = false;
     }
 
-    if (m_lander.getState() == LanderState::CRASHED) {
+    if (m_battleship.getState() == BattleshipState::CRASHED) {
         if (m_statusMessage.find("CRASHED") == std::string::npos) {
             m_statusMessage = "CRASHED! HULL DESTROYED";
             m_statusSubMessage = "PRESS [A] OR [R] TO TRY AGAIN";
@@ -327,9 +327,9 @@ void Game::update(float dt) {
     }
     m_camera.zoom += (targetZoom - m_camera.zoom) * (dt * 4.0f);
 
-    // Camera Center follows Lander with smooth lerp
-    float targetCamX = m_lander.getX(); // [m]
-    float targetCamY = m_lander.getY(); // [m]
+    // Camera Center follows Battleship with smooth lerp
+    float targetCamX = m_battleship.getX(); // [m]
+    float targetCamY = m_battleship.getY(); // [m]
     m_camera.x += (targetCamX - m_camera.x) * (dt * 6.0f); // [m]
     m_camera.y += (targetCamY - m_camera.y) * (dt * 6.0f); // [m]
 
@@ -358,8 +358,8 @@ void Game::render() {
     // 2. Terrain & Multiplier Pads
     m_terrain.render(m_renderer, m_camera, m_crtGlow);
 
-    // 3. Lander & Thrust Plume
-    m_lander.render(m_renderer, m_camera, m_crtGlow);
+    // 3. Battleship & Thrust Plume
+    m_battleship.render(m_renderer, m_camera, m_crtGlow);
 
     // 4. Vector HUD & Telemetry
     renderHUD();
@@ -388,7 +388,7 @@ void Game::renderHUD() {
     ssTime << "TIME " << std::setfill('0') << std::setw(3) << (int)m_gameTime;
     VectorFont::drawText(m_renderer, ssTime.str(), 260.0f, 25.0f, scale, hudColor, m_crtGlow);
 
-    float hull = m_lander.getHull(); // [%]
+    float hull = m_battleship.getHull(); // [%]
     std::ostringstream ssHull;
     ssHull << "HULL " << std::setfill('0') << std::setw(3) << (int)std::round(hull) << "%";
     SDL_Color hullColor = (hull > 60.0f) ? SDL_Color{100, 255, 120, 255} :
@@ -396,13 +396,13 @@ void Game::renderHUD() {
     VectorFont::drawText(m_renderer, ssHull.str(), 460.0f, 25.0f, scale, hullColor, m_crtGlow);
 
     std::ostringstream ssFuel;
-    if (m_lander.isUnlimitedFuel()) {
+    if (m_battleship.isUnlimitedFuel()) {
         ssFuel << "FUEL UNLTD";
     } else {
-        ssFuel << "FUEL " << std::setfill('0') << std::setw(4) << (int)std::round(m_lander.getFuel()) << " KG";
+        ssFuel << "FUEL " << std::setfill('0') << std::setw(4) << (int)std::round(m_battleship.getFuel()) << " KG";
     }
-    SDL_Color fuelColor = m_lander.isUnlimitedFuel() ? SDL_Color{100, 255, 140, 255} :
-                         ((m_lander.getFuel() < 150.0f * LB2KG) ? SDL_Color{255, 70, 70, 255} : hudColor); // Low fuel < 68 kg
+    SDL_Color fuelColor = m_battleship.isUnlimitedFuel() ? SDL_Color{100, 255, 140, 255} :
+                         ((m_battleship.getFuel() < 150.0f * LB2KG) ? SDL_Color{255, 70, 70, 255} : hudColor); // Low fuel < 68 kg
     VectorFont::drawText(m_renderer, ssFuel.str(), 670.0f, 25.0f, scale, fuelColor, m_crtGlow);
 
     // Site name
@@ -423,8 +423,8 @@ void Game::renderTelemetry() {
     SDL_Color redDanger = {255, 80, 80, 255};
     SDL_Color whiteText = {220, 240, 230, 255};
 
-    float surfaceY = m_terrain.getSurfaceHeightAt(m_lander.getX()); // [m]
-    float altitude = std::max(0.0f, surfaceY - (m_lander.getY() + 12.0f * FT2M)); // [m]
+    float surfaceY = m_terrain.getSurfaceHeightAt(m_battleship.getX()); // [m]
+    float altitude = std::max(0.0f, surfaceY - (m_battleship.getY() + 12.0f * FT2M)); // [m]
 
     // 1. ALTITUDE [m]
     std::ostringstream ssAlt;
@@ -432,31 +432,31 @@ void Game::renderTelemetry() {
     VectorFont::drawText(m_renderer, ssAlt.str(), baseX, baseY, scale, whiteText, m_crtGlow);
 
     // 2. HORIZONTAL VELOCITY [m/s]
-    float vx = m_lander.getVx(); // [m/s]
-    bool hSafe = std::abs(vx) <= Lander::SAFE_MAX_VX;
+    float vx = m_battleship.getVx(); // [m/s]
+    bool hSafe = std::abs(vx) <= Battleship::SAFE_MAX_VX;
     std::ostringstream ssH;
     ssH << "H.SPEED : " << (vx < 0 ? "< " : "> ") << std::setfill('0') << std::setw(2) << std::abs((int)std::round(vx)) << " M/S";
     VectorFont::drawText(m_renderer, ssH.str(), baseX, baseY + 28.0f, scale, 
                          hSafe ? greenSafe : redDanger, m_crtGlow);
 
     // 3. VERTICAL VELOCITY [m/s]
-    float vy = m_lander.getVy(); // [m/s]
-    bool vSafe = vy <= Lander::SAFE_MAX_VY;
+    float vy = m_battleship.getVy(); // [m/s]
+    bool vSafe = vy <= Battleship::SAFE_MAX_VY;
     std::ostringstream ssV;
     ssV << "V.SPEED : " << (vy > 0 ? "v " : "^ ") << std::setfill('0') << std::setw(2) << std::abs((int)std::round(vy)) << " M/S";
     VectorFont::drawText(m_renderer, ssV.str(), baseX, baseY + 56.0f, scale, 
                          vSafe ? greenSafe : redDanger, m_crtGlow);
 
     // 4. TILT ANGLE [deg]
-    float deg = std::abs(m_lander.getAngle() * 180.0f / 3.14159265f); // [deg]
-    bool angleSafe = deg <= Lander::SAFE_MAX_ANGLE_DEG;
+    float deg = std::abs(m_battleship.getAngle() * 180.0f / 3.14159265f); // [deg]
+    bool angleSafe = deg <= Battleship::SAFE_MAX_ANGLE_DEG;
     std::ostringstream ssA;
-    ssA << "TILT    : " << (m_lander.getAngle() < 0 ? "L " : "R ") << std::setw(2) << (int)deg << "*";
+    ssA << "TILT    : " << (m_battleship.getAngle() < 0 ? "L " : "R ") << std::setw(2) << (int)deg << "*";
     VectorFont::drawText(m_renderer, ssA.str(), baseX, baseY + 84.0f, scale, 
                          angleSafe ? greenSafe : redDanger, m_crtGlow);
 
     // 5. HULL INTEGRITY METER [%]
-    float hull = m_lander.getHull(); // [%]
+    float hull = m_battleship.getHull(); // [%]
     SDL_Color hullCol = (hull > 60.0f) ? greenSafe : ((hull > 30.0f) ? SDL_Color{255, 200, 60, 255} : redDanger);
     std::ostringstream ssHul;
     ssHul << "HULL    : " << std::setw(3) << (int)std::round(hull) << "%";
@@ -476,8 +476,8 @@ void Game::renderTelemetry() {
     }
 
     // 6. DUAL ANALOG THRUST METERS (Independent Left & Right Trigger readouts)
-    float tL = m_lander.getThrottleLeft();  // [0.0 - 1.0, dimensionless]
-    float tR = m_lander.getThrottleRight(); // [0.0 - 1.0, dimensionless]
+    float tL = m_battleship.getThrottleLeft();  // [0.0 - 1.0, dimensionless]
+    float tR = m_battleship.getThrottleRight(); // [0.0 - 1.0, dimensionless]
 
     VectorFont::drawText(m_renderer, "L.ENG [LT]:", baseX, baseY + 136.0f, 1.6f, whiteText, m_crtGlow);
     float meterX = baseX + 145.0f;  // [px]
@@ -515,7 +515,7 @@ void Game::renderTelemetry() {
     VectorFont::drawText(m_renderer, lockStr, baseX, baseY + 175.0f, 1.6f, lockCol, m_crtGlow);
 
     // 8. GROUND EFFECT INDICATOR
-    float ge = m_lander.getGroundEffectMagnitude(); // [0.0 - 1.0, dimensionless]
+    float ge = m_battleship.getGroundEffectMagnitude(); // [0.0 - 1.0, dimensionless]
     SDL_Color geTextCol = (ge > 0.05f) ? SDL_Color{80, 230, 255, 255} : SDL_Color{100, 140, 120, 255};
     VectorFont::drawText(m_renderer, "G.EFFECT:", baseX, baseY + 195.0f, 1.6f, geTextCol, m_crtGlow);
     float geMeterX = baseX + 120.0f; // [px]
@@ -546,11 +546,11 @@ void Game::renderFlightStatus() {
         return;
     }
 
-    if (m_messageTimer > 0.0f || m_lander.getState() != LanderState::FLYING) {
+    if (m_messageTimer > 0.0f || m_battleship.getState() != BattleshipState::FLYING) {
         SDL_Color msgColor = {255, 255, 150, 255};
-        if (m_lander.getState() == LanderState::CRASHED) {
+        if (m_battleship.getState() == BattleshipState::CRASHED) {
             msgColor = {255, 90, 90, 255};
-        } else if (m_lander.getState() == LanderState::LANDED) {
+        } else if (m_battleship.getState() == BattleshipState::LANDED) {
             msgColor = {120, 255, 140, 255};
         }
 

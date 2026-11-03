@@ -5,7 +5,7 @@
 #include "SoundEngine.hpp"
 #include "InputManager.hpp"
 #include "Terrain.hpp"
-#include "Lander.hpp"
+#include "Battleship.hpp"
 
 #include <SDL2/SDL.h>
 #include <string>
@@ -45,7 +45,7 @@ private:
 
     Camera2D m_camera;
     Terrain m_terrain;
-    Lander m_lander;
+    Battleship m_battleship;
     SoundEngine m_sound;
     InputManager m_input;
 

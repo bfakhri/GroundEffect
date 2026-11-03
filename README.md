@@ -8,20 +8,20 @@ An authentic, high-fidelity recreation and evolution of the classic vector arcad
 
 - **Twin Main Thrusters with Differential Steering**:
   - The craft is equipped with **two independent main thrusters** laterally displaced on either side of the descent stage.
-  - Squeezing the **Left Trigger (`LT`)** ignites the left engine, pushing the left side up and causing the lander to tilt and steer to the right.
-  - Squeezing the **Right Trigger (`RT`)** ignites the right engine, pushing the right side up and causing the lander to tilt and steer to the left.
+  - Squeezing the **Left Trigger (`LT`)** ignites the left engine, pushing the left side up and causing the battleship to tilt and steer to the right.
+  - Squeezing the **Right Trigger (`RT`)** ignites the right engine, pushing the right side up and causing the battleship to tilt and steer to the left.
   - Squeezing **both triggers simultaneously** delivers balanced vertical lift.
   - **Slightly Exponential Thrust Curve ($t^{1.6}$)**: Provides fine, delicate feathering control at low throttle for soft hover adjustments and touchdown precision, while smoothly ramping up to full engine punch at deep trigger pulls.
   - Pilots can steer using pure differential engine thrust alone or in combination with the attitude reaction control system (RCS)!
   - **Unlimited Fuel Testing Mode**: Enabled by default for convenient development and testing; toggle anytime on the fly.
-  - **Velocity-Proportional Damage & Rebound System**: Instead of breaking on first contact, rough touchdowns and terrain impacts bounce the lander off the surface and accrue structural damage proportional to the impact velocity ($v_{impact} \times 0.75\%$). The vehicle only breaks apart when cumulative damage reaches 100%!
+  - **Velocity-Proportional Damage & Rebound System**: Instead of breaking on first contact, rough touchdowns and terrain impacts bounce the battleship off the surface and accrue structural damage proportional to the impact velocity ($v_{impact} \times 0.75\%$). The vehicle only breaks apart when cumulative damage reaches 100%!
   - **Impact Haptic Vibration**: Controller rumbles with intensity and duration scaled directly to impact speed on every collision, accompanied by a procedural metallic crunch sound and visual hull flash.
 
 - **Xbox 360 Controller Support**:
   - **Left Trigger (`LT`) [Analog]**: Proportional 0% to 100% Left Engine Throttle.
   - **Right Trigger (`RT`) [Analog]**: Proportional 0% to 100% Right Engine Throttle.
   - **Left Stick (`LS`) & D-Pad**: High-precision yaw rotation with deadzone filtering and attitude thruster puffs.
-  - **`B` Button (ABORT)**: Emergency abort system! Fires retro rockets vertically, uprights the lander, and burns fuel to escape an imminent crash.
+  - **`B` Button (ABORT)**: Emergency abort system! Fires retro rockets vertically, uprights the battleship, and burns fuel to escape an imminent crash.
   - **`X` Button (INSERT COIN / +227 KG FUEL)**: Recreates the original arcade mechanic allowing pilots to pump in more propellant mid-flight (+226.8 kg / +500 lb).
   - **`Y` Button (CHANGE MISSION SITE)**: Cycles through 4 terrain zones (Tranquility Base, Tycho Crater, Ocean of Storms, Hadley Rille).
   - **`A` Button (RESTART / BOOST)**: Restarts flight after touchdown or crash (or provides simultaneous dual-engine thrust).
@@ -126,4 +126,4 @@ To successfully touch down on a landing pad and receive multiplier points:
 1. **Pad Alignment**: Both footpads must make contact within the bounds of a designated horizontal pad (`2X`, `3X`, `4X`, or `5X`).
 2. **Vertical Speed**: Must be less than **6.1 m/s** (20.0 ft/s; HUD turns green).
 3. **Horizontal Speed**: Must be less than **4.3 m/s** (14.0 ft/s; HUD turns green).
-4. **Lander Attitude / Tilt**: Must be upright within **±7.0 degrees** of vertical.
+4. **Battleship Attitude / Tilt**: Must be upright within **±7.0 degrees** of vertical.

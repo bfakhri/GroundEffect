@@ -1,9 +1,4 @@
-#include "Lander.hpp"
-#include <cmath>
-#include <cstdlib>
-#include <algorithm>
-
-#include "Lander.hpp"
+#include "Battleship.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
@@ -31,12 +26,12 @@ static inline float applyThrustCurve(float t) {
     return std::pow(t, THRUST_EXPONENT);
 }
 
-Lander::Lander() {
+Battleship::Battleship() {
     initCraftGeometry();
     resetLanded(975.0f * FT2M, (1720.0f - 12.0f) * FT2M, 750.0f * LB2KG); // [m] 297.18 m, [m] 520.598 m, [kg] 340.194 kg
 }
 
-void Lander::initCraftGeometry() {
+void Battleship::initCraftGeometry() {
     m_craftLines.clear();
 
     // ── 1. Armored Citadel & Main Hull ──────────────────────────────────────
@@ -132,8 +127,8 @@ void Lander::initCraftGeometry() {
     m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M}); // Rear upturned skid heel
 }
 
-void Lander::reset(float startX, float startY, float startFuel) {
-    m_state = LanderState::FLYING;
+void Battleship::reset(float startX, float startY, float startFuel) {
+    m_state = BattleshipState::FLYING;
     m_x = startX;              // [m]
     m_y = startY;              // [m]
     m_vx = 30.0f * FT2M;       // [m/s] Initial entry horizontal drift: 9.144 m/s (converted from 30.0 ft/s)
@@ -160,9 +155,9 @@ void Lander::reset(float startX, float startY, float startFuel) {
     m_impulseBoostActive = false;
 }
 
-void Lander::resetLanded(float startX, float startY, float startFuel) {
+void Battleship::resetLanded(float startX, float startY, float startFuel) {
     reset(startX, startY, startFuel);
-    m_state = LanderState::LANDED;
+    m_state = BattleshipState::LANDED;
     m_landedSurfaceY = startY;
     m_y = startY;
     m_vx = 0.0f;
@@ -171,20 +166,20 @@ void Lander::resetLanded(float startX, float startY, float startFuel) {
     m_angularVel = 0.0f;
 }
 
-bool Lander::isSafeSpeed() const {
+bool Battleship::isSafeSpeed() const {
     return std::abs(m_vx) <= SAFE_MAX_VX && m_vy <= SAFE_MAX_VY && m_vy >= -10.0f * FT2M; // [m/s]
 }
 
-bool Lander::isSafeAngle() const {
+bool Battleship::isSafeAngle() const {
     float deg = std::abs(m_angle * RAD2DEG); // [deg]
     return deg <= SAFE_MAX_ANGLE_DEG;
 }
 
-void Lander::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
+void Battleship::update(float dt, float throttleLeft, float throttleRight, float rotateInput, bool abortTriggered, bool boostTriggered,
                     const Terrain& terrain, SoundEngine& sound) {
     m_impulseBoostActive = false;
 
-    if (m_state == LanderState::CRASHED) {
+    if (m_state == BattleshipState::CRASHED) {
         // Update debris motion
         for (auto& d : m_debris) {
             d.x1 += d.vx * dt;
@@ -200,9 +195,9 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
         return;
     }
 
-    if (m_state == LanderState::LANDED) {
+    if (m_state == BattleshipState::LANDED) {
         if (boostTriggered && (m_unlimitedFuel || m_fuel > 5.0f * LB2KG)) {
-            m_state = LanderState::FLYING;
+            m_state = BattleshipState::FLYING;
             m_takeoffCooldown = 0.6f;
             m_vy = -IMPULSE_DELTA_V;
             m_y += m_vy * dt;
@@ -244,7 +239,7 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
         float ay = -totalThrustAccel + GRAVITY;
 
         if (ay < -0.1f) {
-            m_state = LanderState::FLYING;
+            m_state = BattleshipState::FLYING;
             m_takeoffCooldown = 0.6f;
             m_vy += ay * dt;
             m_y += m_vy * dt;
@@ -275,7 +270,7 @@ void Lander::update(float dt, float throttleLeft, float throttleRight, float rot
     checkTerrainCollision(terrain, sound);
 }
 
-void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput,
+void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight, float rotateInput,
                            bool abortTriggered, bool boostTriggered,
                            const Terrain& terrain, SoundEngine& sound) {
     // Check abort condition
@@ -318,7 +313,7 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
         m_abortTimer -= dt; // [s]
         rawThrottleLeft = 1.0f; // Max thrust on both engines
         rawThrottleRight = 1.0f;
-        // Right the lander towards 0 angle using PD attitude control to cancel angular momentum
+        // Right the battleship towards 0 angle using PD attitude control to cancel angular momentum
         float targetTorque = -m_angle * 3.5f - m_angularVel * 2.2f; // [rad/s^2]
         appliedRotate = std::clamp(targetTorque, -1.0f, 1.0f);
 
@@ -414,7 +409,7 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
     static const float GE_FALLOFF         = 65.0f * FT2M;           // [m] Exponential decay length: 19.812 m (converted from 65.0 ft)
     static const float GE_TORQUE_SCALE    = 0.018f / (FT2M * FT2M); // [rad/(m*s^2)] Moment arm scaling for torque: 0.19375 (converted from 0.018)
 
-    // Exhaust direction in world space: lander local "down" = (-sinA, cosA)
+    // Exhaust direction in world space: battleship local "down" = (-sinA, cosA)
     // (Verified: at angle=0 this gives (0,+1) = screen-down, matching flame rendering)
     float cosA = std::cos(m_angle);
     float sinA = std::sin(m_angle);
@@ -460,7 +455,7 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
                 float decay = std::exp(-hit.dist / GE_FALLOFF);
                 float accelMag = nozzle.throttle * GE_FORCE_PER_RAY * decay; // [m/s^2]
 
-                // Accumulate force along surface normal (terrain pushes lander back)
+                // Accumulate force along surface normal (terrain pushes battleship back)
                 geAccelX += accelMag * hit.normalX; // [m/s^2]
                 geAccelY += accelMag * hit.normalY; // [m/s^2]
 
@@ -494,7 +489,7 @@ void Lander::updatePhysics(float dt, float throttleLeft, float throttleRight, fl
     m_flameFlicker += dt * 30.0f; // [rad]
 }
 
-void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
+void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
     if (m_impactCooldown > 0.0f) {
         return;
     }
@@ -514,7 +509,7 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
     toWorld(-18.0f * FT2M, 12.0f * FT2M, leftPadWx, leftPadWy);
     toWorld(18.0f * FT2M, 12.0f * FT2M, rightPadWx, rightPadWy);
 
-    // Check collision for key segments of the lander against terrain [m]
+    // Check collision for key segments of the battleship against terrain [m]
     bool anyCollision = false;
     bool touchedPad = false;
     int padMultiplier = 0;
@@ -595,8 +590,8 @@ void Lander::checkTerrainCollision(const Terrain& terrain, SoundEngine& sound) {
     }
 }
 
-void Lander::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
-    m_state = LanderState::LANDED;
+void Battleship::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
+    m_state = BattleshipState::LANDED;
     m_lastPadMultiplier = multiplier;
     m_vx = 0.0f; // [m/s]
     m_vy = 0.0f; // [m/s]
@@ -607,8 +602,8 @@ void Lander::triggerLanding(int multiplier, float hitY, SoundEngine& sound) {
     sound.playLandFanfare();
 }
 
-void Lander::spawnThrusterParticles(float dt) {
-    if (m_state == LanderState::CRASHED) return;
+void Battleship::spawnThrusterParticles(float dt) {
+    if (m_state == BattleshipState::CRASHED) return;
     if (!m_unlimitedFuel && m_fuel <= 0.0f) return;
 
     auto emitFromNozzle = [&](float nozzleLocalX, float throttle) {
@@ -664,7 +659,7 @@ void Lander::spawnThrusterParticles(float dt) {
     emitFromNozzle( 5.5f * FT2M, m_throttleRight);
 }
 
-void Lander::spawnImpulseParticles() {
+void Battleship::spawnImpulseParticles() {
     auto emitImpulseFromNozzle = [&](float nozzleLocalX) {
         float cosA = std::cos(m_angle);
         float sinA = std::sin(m_angle);
@@ -711,7 +706,7 @@ void Lander::spawnImpulseParticles() {
     emitImpulseFromNozzle( 5.5f * FT2M);
 }
 
-void Lander::updateThrusterParticles(float dt, const Terrain& terrain) {
+void Battleship::updateThrusterParticles(float dt, const Terrain& terrain) {
     for (auto& p : m_particles) {
         if (p.life <= 0.0f) continue;
 
@@ -776,8 +771,8 @@ void Lander::updateThrusterParticles(float dt, const Terrain& terrain) {
     );
 }
 
-void Lander::triggerCrash(SoundEngine& sound) {
-    m_state = LanderState::CRASHED;
+void Battleship::triggerCrash(SoundEngine& sound) {
+    m_state = BattleshipState::CRASHED;
     sound.playExplosion();
 
     float cosA = std::cos(m_angle);
@@ -805,7 +800,7 @@ void Lander::triggerCrash(SoundEngine& sound) {
     }
 }
 
-void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
+void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
     SDL_Color craftColor = {240, 255, 240, 255}; // Classic vector white/cyan
     if (m_impactFlashTimer > 0.0f) {
         craftColor = {255, 110, 90, 255}; // Flash warning red/amber on impact
@@ -834,7 +829,7 @@ void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
         VectorRenderer::drawLineWorld(renderer, cam, sx1, sy1, sx2, sy2, col, glow * 1.3f, 1);
     }
 
-    if (m_state == LanderState::CRASHED) {
+    if (m_state == BattleshipState::CRASHED) {
         // Draw tumbling debris
         for (const auto& d : m_debris) {
             if (d.life <= 0.0f) continue;
@@ -883,22 +878,22 @@ void Lander::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
         VectorRenderer::drawLineWorld(renderer, cam, w1x, w1y, w2x, w2y, flareColor, glow * 1.2f, 1);
     };
 
-    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != LanderState::CRASHED) {
+    if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
         drawSteadyNozzleFlare(-5.5f * FT2M, m_throttleLeft); // [m] Left nozzle
     }
-    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != LanderState::CRASHED) {
+    if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f) && m_state != BattleshipState::CRASHED) {
         drawSteadyNozzleFlare(5.5f * FT2M, m_throttleRight);  // [m] Right nozzle
     }
 
     // 4. Draw RCS Attitude Thruster Puffs
-    if (m_rcsPuffLeft > 0.0f && m_state == LanderState::FLYING) {
+    if (m_rcsPuffLeft > 0.0f && m_state == BattleshipState::FLYING) {
         float px1 = m_x + (-14.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
         float py1 = m_y + (-14.0f * FT2M * sinA + (-5.0f * FT2M) * cosA); // [m]
         float px2 = m_x + (-22.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
         float py2 = m_y + (-22.0f * FT2M * sinA + (-5.0f * FT2M) * cosA); // [m]
         VectorRenderer::drawLineWorld(renderer, cam, px1, py1, px2, py2, rcsColor, glow * 1.5f, 2);
     }
-    if (m_rcsPuffRight > 0.0f && m_state == LanderState::FLYING) {
+    if (m_rcsPuffRight > 0.0f && m_state == BattleshipState::FLYING) {
         float px1 = m_x + (14.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
         float py1 = m_y + (14.0f * FT2M * sinA + (-5.0f * FT2M) * cosA); // [m]
         float px2 = m_x + (22.0f * FT2M * cosA - (-5.0f * FT2M) * sinA); // [m]
