@@ -11,7 +11,6 @@ static constexpr float LB2KG = 0.45359237f;      // [kg/lb] Mass conversion fact
 static const float GRAVITY = 28.0f * FT2M;           // [m/s^2] Downward gravitational acceleration: 8.5344 m/s^2 (converted from 28.0 ft/s^2)
 static const float THRUST_PER_ENGINE = 60.0f * FT2M; // [m/s^2] Main engine thrust acceleration: 18.288 m/s^2 (converted from 60.0 ft/s^2)
 static const float THRUST_EXPONENT = 1.6f;           // [dimensionless] Slightly exponential throttle curve for precision feathering
-static const float MAX_ANGULAR_VEL = 3.5f;           // [rad/s] Maximum clamped angular velocity
 static const float RCS_FUEL_BURN_RATE = 2.5f * LB2KG;// [kg/s] Fuel consumed by RCS thrusters per second at full rotation: 1.134 kg/s (converted from 2.5 lb/s)
 static const float FUEL_BURN_RATE = 28.0f * LB2KG;   // [kg/s] Fuel consumed at 100% dual throttle per second: 12.701 kg/s (converted from 28.0 lb/s)
 static const float DAMAGE_PER_VELOCITY = 0.40f / FT2M;// [%/(m/s)] Structural damage percentage accrued per m/s impact speed: 1.3123 %/(m/s)
@@ -474,9 +473,8 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     updateHoverThrusters(dt, appliedRotate, diffThrust, terrain, sound,
                          totalWorldAx, totalWorldAy, totalAngularAccel);
 
-    // Integrate angular velocity & angle
+    // Integrate angular velocity & angle (unclamped angular velocity)
     m_angularVel += totalAngularAccel * dt;                                     // [rad/s]
-    m_angularVel = std::clamp(m_angularVel, -MAX_ANGULAR_VEL, MAX_ANGULAR_VEL); // [rad/s]
     m_angle += m_angularVel * dt;                                               // [rad]
 
     // Wrap angle to [-PI, PI]
@@ -490,19 +488,19 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     // ── Air Brakes: Aerodynamic Drag & Rotational Stabilization ──────────────
     float dragAccelX = 0.0f;
     float dragAccelY = 0.0f;
-    if (m_airBrakesActive) {
-        static const float AIR_BRAKE_LINEAR_DRAG = 1.85f;  // [1/s] Linear aerodynamic damping rate
-        static const float AIR_BRAKE_QUAD_DRAG   = 0.045f; // [1/m] Quadratic high-speed aerodynamic drag
-        static const float AIR_BRAKE_ANG_DRAG    = 4.0f;   // [1/s] Rotational air-brake damping rate
+    if (m_airBrakeDeploy > 0.001f) {
+        static const float AIR_BRAKE_LINEAR_DRAG = 0.18f;  // [1/s] Linear aerodynamic damping rate (reduced further)
+        static const float AIR_BRAKE_QUAD_DRAG   = 0.0035f;// [1/m] Quadratic high-speed aerodynamic drag (reduced further)
+        static const float AIR_BRAKE_ANG_DRAG    = 0.35f;  // [1/s] Rotational air-brake damping rate (reduced further)
 
         float preVx = m_vx;
         float preVy = m_vy;
         float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy); // [m/s]
-        float dragRate = AIR_BRAKE_LINEAR_DRAG + AIR_BRAKE_QUAD_DRAG * speed; // [1/s]
+        float dragRate = (AIR_BRAKE_LINEAR_DRAG + AIR_BRAKE_QUAD_DRAG * speed) * m_airBrakeDeploy; // [1/s]
         float atten = 1.0f / (1.0f + dragRate * dt);
         m_vx *= atten;
         m_vy *= atten;
-        m_angularVel *= 1.0f / (1.0f + AIR_BRAKE_ANG_DRAG * dt);
+        m_angularVel *= 1.0f / (1.0f + (AIR_BRAKE_ANG_DRAG * m_airBrakeDeploy) * dt);
         m_airBrakeDragMagnitude = std::clamp((speed * dragRate) / (50.0f * FT2M), 0.0f, 1.0f);
 
         if (dt > 1e-5f) {

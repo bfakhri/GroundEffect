@@ -204,7 +204,19 @@ bool testFuelAbortAndImpulseBoost() {
         ship.update(DT, 1.0f, 1.0f, 1.0f, false, false, terrain, sound);
     }
     CHECK(ship.getFuel() < f0);
-    CHECK(std::abs(ship.getAngularVel()) <= 3.5001f); // Clamped to MAX_ANGULAR_VEL
+    // Angular velocity is unclamped and can freely spin up
+    CHECK(std::abs(ship.getAngularVel()) > 2.0f);
+
+    // Sustained full rotation exceeds previous 3.5 rad/s clamp
+    {
+        Battleship spinShip;
+        spinShip.reset(500.0f, 200.0f, 300.0f);
+        spinShip.setUnlimitedFuel(true);
+        for (int i = 0; i < 60; ++i) {
+            spinShip.update(DT, 0.0f, 0.0f, 1.0f, false, false, terrain, sound);
+        }
+        CHECK(spinShip.getAngularVel() > 3.5f); // Unclamped angular velocity
+    }
 
     // Drain fuel completely and verify engines cut out
     ship.reset(500.0f, 200.0f, 0.0f);
@@ -266,15 +278,18 @@ bool testAirBrakes() {
     CHECK_NEAR(braked.getAirBrakeDeploy(), 1.0f, 0.01f);
     CHECK(braked.getAirBrakeDragMagnitude() > 0.0f);
 
-    // Horizontal velocity should be drastically reduced compared to unbraked (< 25% of unbraked)
-    CHECK(braked.getVx() < unbraked.getVx() * 0.25f);
+    // Horizontal velocity should be gently reduced compared to unbraked (~60%-70%, subtle realistic braking)
+    CHECK(braked.getVx() < unbraked.getVx() * 0.75f);
+    CHECK(braked.getVx() > unbraked.getVx() * 0.50f); // Reduced effectiveness prevents unrealistic stops
     CHECK(braked.getVx() > 0.0f); // Never reverses direction
 
-    // Terminal vertical fall speed with air brakes should be much slower than unbraked free-fall
-    CHECK(braked.getVy() < unbraked.getVy() * 0.45f);
+    // Terminal vertical fall speed with air brakes should be slower than unbraked free-fall
+    CHECK(braked.getVy() < unbraked.getVy() * 0.80f);
+    CHECK(braked.getVy() > unbraked.getVy() * 0.55f);
 
-    // Angular velocity should also be heavily damped by air brakes
-    CHECK(std::abs(braked.getAngularVel()) < std::abs(unbraked.getAngularVel()) * 0.25f);
+    // Angular velocity should also be gently damped by air brakes
+    CHECK(std::abs(braked.getAngularVel()) < std::abs(unbraked.getAngularVel()) * 0.75f);
+    CHECK(std::abs(braked.getAngularVel()) > std::abs(unbraked.getAngularVel()) * 0.45f);
 
     // Test toggle API as well
     braked.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false);
