@@ -101,10 +101,9 @@ private:
     // Throttle coupling mode: true = both triggers mirror each other (whichever is higher wins)
     bool m_throttleLockMode = false;
 
-    // Rocket-League-style ship rotation tracking & secondary-joystick camera pan state
-    float m_camTrackYaw = 0.0f;   // [rad] Smoothed camera yaw tracking ship rotation
-    float m_camTrackPitch = 0.28f;// [rad] Smoothed camera pitch tracking ship pitch
-    float m_camTrackRoll = 0.0f;  // [rad] Smoothed camera roll tracking ship bank angle
-    float m_camPanYaw = 0.0f;     // [rad] Secondary joystick camera pan yaw offset
-    float m_camPanPitch = 0.0f;   // [rad] Secondary joystick camera pan pitch offset
+    // Rocket League Camera_TA state (tracked orientation & right-stick swivel angles)
+    float m_camTrackYaw = 0.0f;    // [rad] Smoothed Car-Cam / Target-Cam yaw angle in XZ plane
+    float m_camTrackPitch = 0.24f; // [rad] Smoothed Car-Cam / Target-Cam elevation pitch angle
+    float m_camSwivelYaw = 0.0f;   // [rad] Right-stick swivel yaw offset (auto-centers to 0 when stick released)
+    float m_camSwivelPitch = 0.0f; // [rad] Right-stick swivel pitch offset (auto-centers to 0 when stick released)
 };
