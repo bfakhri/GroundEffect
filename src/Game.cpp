@@ -543,7 +543,7 @@ void Game::update(float dt) {
 
                 float pitchFromAttitude = std::sin(shipPitch) * 0.30f;
                 float pitchFromVel      = std::clamp(vel3D.y * 0.008f, -0.12f, 0.18f);
-                targetPitch = std::clamp(basePitchRad + pitchFromAttitude + pitchFromVel, 0.08f, 0.95f);
+                targetPitch = std::clamp(basePitchRad + pitchFromAttitude + pitchFromVel, -1.25f, 1.25f);
             }
         } else if (m_camera.viewMode == CameraViewMode::ORBIT_3D) {
             // Rocket League Ball Cam (Target Pad Cam):
@@ -566,7 +566,7 @@ void Game::update(float dt) {
                 if (horizDist > 2.5f) {
                     targetYaw = std::atan2(toPad.x, toPad.z);
                     float padPitch = std::atan2(toPad.y, horizDist);
-                    targetPitch = std::clamp(basePitchRad + padPitch * 0.45f, 0.12f, 0.95f);
+                    targetPitch = std::clamp(basePitchRad + padPitch * 0.45f, -1.25f, 1.25f);
                 }
             }
         } else if (m_camera.viewMode == CameraViewMode::ISOMETRIC_3D) {
@@ -580,20 +580,9 @@ void Game::update(float dt) {
         m_camTrackYaw   = wrapAnglePi(m_camTrackYaw + shortestAngleDiff(m_camTrackYaw, targetYaw) * rotAlpha);
         m_camTrackPitch += (targetPitch - m_camTrackPitch) * rotAlpha;
 
-        // Combine tracked rotation with Right-Stick swivel offset
-        m_camera.camYaw = wrapAnglePi(m_camTrackYaw + m_camSwivelYaw);
-        float rawPitch  = m_camTrackPitch + m_camSwivelPitch;
-
-        // Ground collision clamping so the camera never clips below the lunar surface
-        float dist = m_camera.getDistance();
-        float approxCamX = std::clamp(m_camera.x - std::sin(m_camera.camYaw) * dist, 0.0f, m_terrain.getWorldWidth());
-        float approxCamZ = m_camera.z - std::cos(m_camera.camYaw) * dist;
-        float groundYAtCam = m_terrain.getSurfaceHeightAt(approxCamX, approxCamZ);
-        float minGroundClearance = 3.0f; // [m] Minimum camera clearance above terrain
-        float minSinPitch = std::clamp((m_camera.y - (groundYAtCam - minGroundClearance)) / std::max(10.0f, dist), -0.55f, 0.15f);
-        float minPitchRad = std::asin(minSinPitch);
-
-        m_camera.camPitch = std::clamp(rawPitch, std::max(0.05f, minPitchRad), 1.25f);
+        // Combine tracked rotation with Right-Stick swivel offset (unclamped by terrain floor)
+        m_camera.camYaw   = wrapAnglePi(m_camTrackYaw + m_camSwivelYaw);
+        m_camera.camPitch = std::clamp(m_camTrackPitch + m_camSwivelPitch, -1.35f, 1.35f);
     }
 
     m_lastBattleshipState = m_battleship.getState();

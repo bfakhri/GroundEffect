@@ -685,6 +685,19 @@ bool testHeadlessGameEndToEnd() {
             game.stepFrame(DT);
         }
         CHECK(std::abs(game.getCamera().camYaw) < 0.05f);
+
+        // Verify camera can freely swivel below the terrain surface (no terrain floor clamping)
+        pushKeyEvent(SDL_KEYDOWN, SDLK_o);
+        for (int i = 0; i < 15; ++i) {
+            game.stepFrame(DT);
+        }
+        CHECK(game.getCamera().camPitch < -0.35f);
+        game.getCamera().getBasis(camPos, right, camDown, forward);
+        CHECK(camPos.y > pads[0].y); // Camera position is below pad surface (+Y is down)
+        pushKeyEvent(SDL_KEYUP, SDLK_o);
+        for (int i = 0; i < 30; ++i) {
+            game.stepFrame(DT);
+        }
     }
 
     game.shutdown();
