@@ -333,9 +333,9 @@ void Game::update(float dt) {
     m_camera.x += (targetCamX - m_camera.x) * (dt * 6.0f); // [m]
     m_camera.y += (targetCamY - m_camera.y) * (dt * 6.0f); // [m]
 
-    // Keep camera within terrain bounds
+    // Keep camera within terrain horizontal bounds and ground floor (no altitude ceiling)
     m_camera.x = std::clamp(m_camera.x, 300.0f * FT2M, m_terrain.getWorldWidth() - 300.0f * FT2M);   // [m]
-    m_camera.y = std::clamp(m_camera.y, 200.0f * FT2M, m_terrain.getWorldHeight() - 100.0f * FT2M);  // [m]
+    m_camera.y = std::min(m_camera.y, m_terrain.getWorldHeight() - 100.0f * FT2M);  // [m]
 }
 
 void Game::render() {
