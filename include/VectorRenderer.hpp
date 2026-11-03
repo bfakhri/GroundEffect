@@ -74,6 +74,12 @@ struct Camera2D {
     float farPlane = 2600.0f;// [m] Far reference distance for phosphor depth shading
     RocketLeagueCameraSettings rlSettings{};
 
+    // Full 6-DOF custom orthonormal camera basis (used when anchored 1:1 to ship's 3D rotation matrix)
+    bool hasCustomBasis = false;
+    Vec3 customRight{1.0f, 0.0f, 0.0f};
+    Vec3 customCamDown{0.0f, 1.0f, 0.0f};
+    Vec3 customForward{0.0f, 0.0f, 1.0f};
+
     float getFocalLengthPx() const {
         return (screenHeight * 0.5f) / std::tan(fovY * 0.5f);
     }
@@ -83,14 +89,20 @@ struct Camera2D {
     }
 
     void getBasis(Vec3& outCamPos, Vec3& outRight, Vec3& outCamDown, Vec3& outForward) const {
-        float cosY = std::cos(camYaw);
-        float sinY = std::sin(camYaw);
-        float cosP = std::cos(camPitch);
-        float sinP = std::sin(camPitch);
+        if (hasCustomBasis) {
+            outRight   = customRight;
+            outCamDown = customCamDown;
+            outForward = customForward;
+        } else {
+            float cosY = std::cos(camYaw);
+            float sinY = std::sin(camYaw);
+            float cosP = std::cos(camPitch);
+            float sinP = std::sin(camPitch);
 
-        outForward = { sinY * cosP, sinP, cosY * cosP };
-        outRight   = { cosY, 0.0f, -sinY };
-        outCamDown = { -sinP * sinY, cosP, -sinP * cosY };
+            outForward = { sinY * cosP, sinP, cosY * cosP };
+            outRight   = { cosY, 0.0f, -sinY };
+            outCamDown = { -sinP * sinY, cosP, -sinP * cosY };
+        }
 
         Vec3 target{x, y, z};
         outCamPos = target - outForward * getDistance();

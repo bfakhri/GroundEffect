@@ -624,21 +624,24 @@ bool testHeadlessGameEndToEnd() {
     CHECK(game.getCamera().viewMode == CameraViewMode::CHASE_3D);
     CHECK(game.getCamera().use3D);
 
-    // 6. Test Rocket League Camera_TA Implementation:
-    //    (A) Car Cam tracks ship 3D rotation & flight while keeping horizon level (right.y == 0)
-    //    (B) Right-stick swivel pans camera without affecting ship attitude, and snaps back when released
+    // 6. Test 6-DOF Local Ship-Frame Rocket League Camera Implementation:
+    //    (A) Camera is anchored 1:1 to ship's 3D rotation matrix (rolls, pitches, yaws 1:1 with ship) at ~30m close distance
+    //    (B) Right-stick swivel pans camera in local ship frame without affecting ship attitude, and snaps back when released
     {
         const auto& pads = game.getTerrain().getLandingPads();
         float padX = 0.5f * (pads[0].x1 + pads[0].x2);
         float padY = pads[0].y - 12.0f * FT2M;
 
-        // (A) Launch ship and rotate/fly in 3D: verify Car Cam tracks ship rotation & keeps level horizon
-        game.getBattleship().reset(padX, padY - 60.0f, 340.0f, 0.0f);
+        // (A) Launch ship and rotate/fly in 3D: verify 1:1 6-DOF ship-frame camera basis & close ~30m distance
+        game.getBattleship().reset(padX, padY - 120.0f, 340.0f, 0.0f);
         game.getBattleship().setVelocity(0.0f, 0.0f, 0.0f);
-        game.stepFrame(DT);
+        for (int i = 0; i < 30; ++i) {
+            game.stepFrame(DT);
+        }
         float baseDist = game.getCamera().getDistance();
+        CHECK_NEAR(baseDist, 30.0f, 2.0f); // Close ~30m distance even at 120m altitude (no altitude zoom-out)
 
-        // Rotate ship right (bank > 0, yaw > 0) and pitch forward (> 0) with high velocity
+        // Rotate ship in 3D (roll = 0.42 rad, pitch = 0.32 rad, yaw = 0.35 rad) with high velocity
         game.getBattleship().setAngle(0.42f);
         game.getBattleship().setPitch(0.32f);
         game.getBattleship().setYaw(0.35f);
@@ -646,14 +649,16 @@ bool testHeadlessGameEndToEnd() {
         for (int i = 0; i < 20; ++i) {
             game.stepFrame(DT);
         }
-        CHECK(game.getCamera().camYaw > 0.20f);
-        CHECK(game.getCamera().camPitch > 0.25f);
-        // Verify supersonic distance stretch from Stiffness < 1.0
-        CHECK(game.getCamera().getDistance() > baseDist + 5.0f);
-        // Verify horizon is strictly level (Rocket League zero camera roll)
+        CHECK(game.getCamera().hasCustomBasis);
         Vec3 camPos, right, camDown, forward;
         game.getCamera().getBasis(camPos, right, camDown, forward);
-        CHECK_NEAR(right.y, 0.0f, 1e-5f);
+        // Verify camera right vector matches ship's 3D local right axis (1, 0, 0) 1:1
+        Vec3 shipRight = game.getBattleship().localToWorldDir({1.0f, 0.0f, 0.0f}).normalized();
+        CHECK_NEAR(right.dot(shipRight), 1.0f, 1e-3f);
+        CHECK(std::abs(right.y) > 0.20f); // Camera rolls 1:1 with ship bank angle!
+        CHECK(game.getCamera().camPitch > 0.35f);
+        // Verify supersonic distance stretch from Stiffness < 1.0
+        CHECK(game.getCamera().getDistance() > baseDist + 2.5f);
 
         // (B) Reset landed on pad; deflect secondary camera controls ('l' yaw right, 'i' pitch up)
         //     Verify camera swivels while ship attitude remains 0, and snaps back when released!

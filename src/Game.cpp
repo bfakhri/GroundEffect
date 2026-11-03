@@ -69,15 +69,16 @@ bool Game::init(int width, int height) {
 
     m_camera.screenWidth = m_screenWidth;
     m_camera.screenHeight = m_screenHeight;
-    float heightOffsetM = m_camera.rlSettings.height * 0.08f; // 100 uu -> 8.0 m vertical focus offset above ship
-    m_camera.x = m_battleship.getX();
-    m_camera.y = m_battleship.getY() - heightOffsetM;
-    m_camera.z = m_battleship.getZ();
-    m_camera.zoom = 2.10f / FT2M;
+    float heightOffsetM = m_camera.rlSettings.height * 0.035f; // 100 uu -> 3.5 m local focus offset above ship
+    Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
+    m_camera.x = focusPos.x;
+    m_camera.y = focusPos.y;
+    m_camera.z = focusPos.z;
+    m_camera.zoom = m_camera.getFocalLengthPx() / 30.0f; // Close 30m Rocket League chase distance
     m_camera.use3D = true;
     m_camera.viewMode = CameraViewMode::CHASE_3D;
     m_camTrackYaw = 0.0f;
-    m_camTrackPitch = 0.24f;
+    m_camTrackPitch = 0.22f;
     m_camSwivelYaw = 0.0f;
     m_camSwivelPitch = 0.0f;
     m_camera.camYaw = m_camTrackYaw;
@@ -146,16 +147,19 @@ void Game::cycleCameraMode() {
     switch (m_camera.viewMode) {
         case CameraViewMode::CHASE_3D:
             m_camera.use3D = true;
-            m_statusMessage = "CAMERA: ROCKET LEAGUE CAR CAM";
-            m_statusSubMessage = "TRACKS SHIP ROTATION & FLIGHT  |  [RS / J,L,I,O] SWIVEL";
+            m_camera.hasCustomBasis = true;
+            m_statusMessage = "CAMERA: 6-DOF SHIP-FRAME CHASE CAM";
+            m_statusSubMessage = "1:1 SHIP ROTATION LOCK  |  [RS / J,L,I,O] SWIVEL";
             break;
         case CameraViewMode::ORBIT_3D:
             m_camera.use3D = true;
+            m_camera.hasCustomBasis = false;
             m_statusMessage = "CAMERA: TARGET PAD CAM (BALL CAM)";
             m_statusSubMessage = "LOCKS ONTO NEAREST LANDING PAD  |  [RS / J,L,I,O] SWIVEL";
             break;
         case CameraViewMode::ISOMETRIC_3D:
             m_camera.use3D = true;
+            m_camera.hasCustomBasis = false;
             m_camTrackYaw = 0.45f;
             m_camTrackPitch = 0.50f;
             m_camera.camYaw = 0.45f;
@@ -165,6 +169,7 @@ void Game::cycleCameraMode() {
             break;
         case CameraViewMode::CLASSIC_2D:
             m_camera.use3D = false;
+            m_camera.hasCustomBasis = false;
             m_camera.camYaw = 0.0f;
             m_camera.camPitch = 0.0f;
             m_statusMessage = "CAMERA: CLASSIC 1979 2D ORTHO";
@@ -294,17 +299,18 @@ void Game::handleInput() {
             float padSurfaceY = pads[0].y - 12.0f * FT2M;
             m_battleship.resetLanded(padCenterX, padSurfaceY, std::max(m_battleship.getFuel(), 600.0f * LB2KG), 0.0f);
         }
-        float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.08f) : 0.0f;
-        m_camera.x = m_battleship.getX();
-        m_camera.y = m_battleship.getY() - heightOffsetM;
-        m_camera.z = m_battleship.getZ();
-        m_camera.zoom = 2.10f / FT2M;
+        float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
+        Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
+        m_camera.x = focusPos.x;
+        m_camera.y = focusPos.y;
+        m_camera.z = focusPos.z;
+        m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 30.0f) : (2.10f / FT2M);
         m_camTrackYaw = 0.0f;
-        m_camTrackPitch = 0.24f;
+        m_camTrackPitch = 0.22f;
         m_camSwivelYaw = 0.0f;
         m_camSwivelPitch = 0.0f;
         m_camera.camYaw = 0.0f;
-        m_camera.camPitch = 0.24f;
+        m_camera.camPitch = 0.22f;
         m_statusMessage = "MISSION: " + m_terrain.getSiteName();
         m_statusSubMessage = "LANDED ON 3D PAD - READY FOR LAUNCH";
         m_messageTimer = 3.0f;
@@ -321,17 +327,18 @@ void Game::handleInput() {
                 float padSurfaceY = pads[0].y - 12.0f * FT2M;
                 m_battleship.resetLanded(padCenterX, padSurfaceY, nextFuel, 0.0f);
             }
-            float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.08f) : 0.0f;
-            m_camera.x = m_battleship.getX();
-            m_camera.y = m_battleship.getY() - heightOffsetM;
-            m_camera.z = m_battleship.getZ();
-            m_camera.zoom = 2.10f / FT2M;
+            float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
+            Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
+            m_camera.x = focusPos.x;
+            m_camera.y = focusPos.y;
+            m_camera.z = focusPos.z;
+            m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 30.0f) : (2.10f / FT2M);
             m_camTrackYaw = 0.0f;
-            m_camTrackPitch = 0.24f;
+            m_camTrackPitch = 0.22f;
             m_camSwivelYaw = 0.0f;
             m_camSwivelPitch = 0.0f;
             m_camera.camYaw = 0.0f;
-            m_camera.camPitch = 0.24f;
+            m_camera.camPitch = 0.22f;
             m_statusMessage = "READY FOR LAUNCH";
             m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
             m_messageTimer = 2.5f;
@@ -456,49 +463,39 @@ void Game::update(float dt) {
         m_messageTimer -= dt;
     }
 
-    // ── Rocket League Camera_TA Implementation ───────────────────────────────
+    // ── Rocket League 6-DOF Local Ship-Frame Camera Implementation ───────────
     const auto& rl = m_camera.rlSettings;
     float stiffness = std::clamp(rl.stiffness, 0.0f, 1.0f);
 
-    // 1. Velocity-Dependent Distance Scaling ("Supersonic Zoom-Out") + Altitude Context
-    // In Rocket League: Distance_effective = Distance_base + (1.0 - Stiffness) * Stretch * (||V|| / V_supersonic)
-    float baseDistM = rl.distance * 0.39f; // 270 -> 105.3 m base camera distance
-    Vec3 vel3D = m_battleship.getVelocity3D();
-    float speed = vel3D.length();
-    static constexpr float SUPERSONIC_SPEED = 42.0f; // [m/s] Supersonic threshold speed
-    float speedRatio = std::clamp(speed / SUPERSONIC_SPEED, 0.0f, 1.0f);
-    float supersonicStretchM = (1.0f - stiffness) * 58.0f * speedRatio;
-    float altitudeStretchM   = std::clamp(altitude / (550.0f * FT2M), 0.0f, 1.0f) * 210.0f;
-    float effectiveDistM     = std::max(25.0f, baseDistM + supersonicStretchM + altitudeStretchM);
-
-    float targetZoom = m_camera.getFocalLengthPx() / effectiveDistM;
-    float zoomRate = 6.0f + stiffness * 14.0f;
-    m_camera.zoom += (targetZoom - m_camera.zoom) * (1.0f - std::exp(-zoomRate * dt));
-
-    // 2. Focus Point (P_focus = P_car + Up_world * Height) with Stiffness Spring Smoothing
-    float heightOffsetM = m_camera.use3D ? (rl.height * 0.08f) : 0.0f; // 100 -> 8.0 m above ship center of mass (-Y is Up)
-    float targetCamX = m_battleship.getX();
-    float targetCamY = m_battleship.getY() - heightOffsetM;
-    float targetCamZ = m_battleship.getZ();
-
-    float posRate  = 8.0f + stiffness * 18.0f; // Higher Stiffness locks focus tighter to the ship
-    float posAlpha = 1.0f - std::exp(-posRate * dt);
-    m_camera.x += (targetCamX - m_camera.x) * posAlpha;
-    m_camera.y += (targetCamY - m_camera.y) * posAlpha;
-    m_camera.z += (targetCamZ - m_camera.z) * posAlpha;
-
-    m_camera.x = std::clamp(m_camera.x, 300.0f * FT2M, m_terrain.getWorldWidth() - 300.0f * FT2M);
-    m_camera.y = std::min(m_camera.y, m_terrain.getWorldHeight() - 100.0f * FT2M);
-
-    // 3. Rotational Tracking (Car Cam vs Target/Ball Cam) & Right-Stick Swivel
     if (m_camera.use3D) {
-        // Base downward pitch angle from Rocket League's Pitch (Angle) setting + height look-down
-        float basePitchRad = std::clamp(-rl.pitch * DEG2RAD + 0.17f, 0.10f, 0.45f); // ~0.24 rad (~13.7 deg)
+        // 1. Close Rocket League Distance (~30m behind ship + slight speed stretch, NO altitude zoom-out)
+        float baseDistM = rl.distance * (30.0f / 270.0f); // 270 -> 30.0 m close third-person distance
+        Vec3 vel3D = m_battleship.getVelocity3D();
+        float speed = vel3D.length();
+        static constexpr float SUPERSONIC_SPEED = 42.0f; // [m/s] Supersonic threshold speed
+        float speedRatio = std::clamp(speed / SUPERSONIC_SPEED, 0.0f, 1.0f);
+        float supersonicStretchM = (1.0f - stiffness) * 14.0f * speedRatio;
+        float effectiveDistM     = std::max(12.0f, baseDistM + supersonicStretchM);
 
-        // Right-Stick Swivel (state.camYawAxis, state.camPitchAxis):
-        // Proportional look-around offset that interpolates at SwivelSpeed and auto-centers to 0 when released
+        float targetZoom = m_camera.getFocalLengthPx() / effectiveDistM;
+        float zoomRate = 8.0f + stiffness * 16.0f;
+        m_camera.zoom += (targetZoom - m_camera.zoom) * (1.0f - std::exp(-zoomRate * dt));
+
+        // 2. Focus Point in Ship's Local 3D Frame (P_focus = P_ship + localToWorldDir(0, -Height, 0))
+        float heightOffsetM = rl.height * 0.035f; // 100 -> 3.5 m above ship center of mass along ship's local Up axis
+        Vec3 targetFocus = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
+
+        float posRate  = 14.0f + stiffness * 26.0f;
+        float posAlpha = 1.0f - std::exp(-posRate * dt);
+        m_camera.x += (targetFocus.x - m_camera.x) * posAlpha;
+        m_camera.y += (targetFocus.y - m_camera.y) * posAlpha;
+        m_camera.z += (targetFocus.z - m_camera.z) * posAlpha;
+
+        // 3. Base Downward Pitch & Proportional Right-Stick Swivel (auto-centers when released)
+        float basePitchRad = std::clamp(-rl.pitch * DEG2RAD + 0.15f, 0.05f, 0.45f); // ~0.22 rad (~12.6 deg)
+
         static constexpr float MAX_SWIVEL_YAW   = 2.61799f; // [rad] 150 deg max horizontal swivel
-        static constexpr float MAX_SWIVEL_PITCH = 1.13446f; // [rad] 65 deg max vertical swivel
+        static constexpr float MAX_SWIVEL_PITCH = 1.22173f; // [rad] 70 deg max vertical swivel
         float targetSwivelYaw   = state.camYawAxis   * MAX_SWIVEL_YAW;
         float targetSwivelPitch = state.camPitchAxis * MAX_SWIVEL_PITCH;
 
@@ -507,47 +504,36 @@ void Game::update(float dt) {
         m_camSwivelYaw   += shortestAngleDiff(m_camSwivelYaw, targetSwivelYaw) * swivelAlpha;
         m_camSwivelPitch += (targetSwivelPitch - m_camSwivelPitch) * swivelAlpha;
 
-        // Compute target tracked orientation (targetYaw, targetPitch) based on CameraViewMode
-        float targetYaw   = m_camTrackYaw;
-        float targetPitch = m_camTrackPitch;
-
         if (m_camera.viewMode == CameraViewMode::CHASE_3D) {
-            // Rocket League Car Cam:
-            // Tracks the ship's 3D rotation (forward nose + thrust/tilt vector) blended with flight velocity
-            Vec3 shipForward = m_battleship.localToWorldDir({0.0f, 0.0f, 1.0f});
-            Vec3 shipUp      = m_battleship.localToWorldDir({0.0f, -1.0f, 0.0f});
-            float shipYaw    = m_battleship.getYaw();
-            float shipPitch  = m_battleship.getPitch();
+            // Full 6-DOF Local Ship-Frame Camera:
+            // Anchored 1:1 to the ship's 3D rotation matrix (rolls, pitches, and yaws 1:1 with the ship)
+            float localYaw   = m_camSwivelYaw;
+            float localPitch = std::clamp(basePitchRad + m_camSwivelPitch, -1.35f, 1.35f);
 
-            if (m_battleship.getState() == BattleshipState::LANDED) {
-                targetYaw   = shipYaw;
-                targetPitch = basePitchRad;
-            } else {
-                // Horizontal projection of ship's 3D orientation (forward nose + attitude tilt direction)
-                Vec3 rotDirXZ{shipForward.x + shipUp.x * 0.90f, 0.0f, shipForward.z + shipUp.z * 0.90f};
-                if (rotDirXZ.lengthSq() > 1e-4f) {
-                    rotDirXZ = rotDirXZ.normalized();
-                } else {
-                    rotDirXZ = {std::sin(shipYaw), 0.0f, std::cos(shipYaw)};
-                }
+            float cosY = std::cos(localYaw);
+            float sinY = std::sin(localYaw);
+            float cosP = std::cos(localPitch);
+            float sinP = std::sin(localPitch);
 
-                float horizSpeed = std::sqrt(vel3D.x * vel3D.x + vel3D.z * vel3D.z);
-                float velWeight  = std::clamp((horizSpeed - 2.0f) / 14.0f, 0.0f, 0.65f);
-                Vec3 velDirXZ    = (horizSpeed > 1e-3f) ? Vec3{vel3D.x / horizSpeed, 0.0f, vel3D.z / horizSpeed} : rotDirXZ;
-                Vec3 lookDirXZ   = (rotDirXZ * (1.0f - velWeight) + velDirXZ * velWeight).normalized();
-                if (lookDirXZ.lengthSq() < 1e-4f) {
-                    lookDirXZ = rotDirXZ;
-                }
+            Vec3 localForward = { sinY * cosP, sinP, cosY * cosP };
+            Vec3 localRight   = { cosY, 0.0f, -sinY };
+            Vec3 localCamDown = { -sinP * sinY, cosP, -sinP * cosY };
 
-                targetYaw = std::atan2(lookDirXZ.x, lookDirXZ.z);
+            m_camera.customForward = m_battleship.localToWorldDir(localForward).normalized();
+            m_camera.customRight   = m_battleship.localToWorldDir(localRight).normalized();
+            m_camera.customCamDown = m_battleship.localToWorldDir(localCamDown).normalized();
+            m_camera.hasCustomBasis = true;
 
-                float pitchFromAttitude = std::sin(shipPitch) * 0.30f;
-                float pitchFromVel      = std::clamp(vel3D.y * 0.008f, -0.12f, 0.18f);
-                targetPitch = std::clamp(basePitchRad + pitchFromAttitude + pitchFromVel, -1.25f, 1.25f);
-            }
+            // Keep camYaw and camPitch synchronized with the world-space forward look vector
+            m_camera.camYaw   = std::atan2(m_camera.customForward.x, m_camera.customForward.z);
+            m_camera.camPitch = std::asin(std::clamp(m_camera.customForward.y, -1.0f, 1.0f));
+            m_camTrackYaw     = m_camera.camYaw;
+            m_camTrackPitch   = m_camera.camPitch;
         } else if (m_camera.viewMode == CameraViewMode::ORBIT_3D) {
-            // Rocket League Ball Cam (Target Pad Cam):
-            // Points camera forward vector from the ship toward the nearest Landing Pad
+            // Target Pad Cam (Ball Cam): locks camera onto nearest Landing Pad
+            m_camera.hasCustomBasis = false;
+            float targetYaw   = m_camTrackYaw;
+            float targetPitch = m_camTrackPitch;
             const auto& pads = m_terrain.getLandingPads();
             if (!pads.empty()) {
                 Vec3 shipPos = m_battleship.getPosition3D();
@@ -569,20 +555,34 @@ void Game::update(float dt) {
                     targetPitch = std::clamp(basePitchRad + padPitch * 0.45f, -1.25f, 1.25f);
                 }
             }
+            float rotRate  = (4.0f + stiffness * 11.0f) * std::clamp(rl.transitionSpeed, 0.5f, 2.5f);
+            float rotAlpha = 1.0f - std::exp(-rotRate * dt);
+            m_camTrackYaw   = wrapAnglePi(m_camTrackYaw + shortestAngleDiff(m_camTrackYaw, targetYaw) * rotAlpha);
+            m_camTrackPitch += (targetPitch - m_camTrackPitch) * rotAlpha;
+            m_camera.camYaw   = wrapAnglePi(m_camTrackYaw + m_camSwivelYaw);
+            m_camera.camPitch = std::clamp(m_camTrackPitch + m_camSwivelPitch, -1.35f, 1.35f);
         } else if (m_camera.viewMode == CameraViewMode::ISOMETRIC_3D) {
-            targetYaw   = 0.45f;
-            targetPitch = 0.50f;
+            m_camera.hasCustomBasis = false;
+            m_camTrackYaw   = 0.45f;
+            m_camTrackPitch = 0.50f;
+            m_camera.camYaw   = wrapAnglePi(m_camTrackYaw + m_camSwivelYaw);
+            m_camera.camPitch = std::clamp(m_camTrackPitch + m_camSwivelPitch, -1.35f, 1.35f);
         }
-
-        // Smooth tracked camera rotation using Rocket League Stiffness & TransitionSpeed
-        float rotRate  = (4.0f + stiffness * 11.0f) * std::clamp(rl.transitionSpeed, 0.5f, 2.5f);
-        float rotAlpha = 1.0f - std::exp(-rotRate * dt);
-        m_camTrackYaw   = wrapAnglePi(m_camTrackYaw + shortestAngleDiff(m_camTrackYaw, targetYaw) * rotAlpha);
-        m_camTrackPitch += (targetPitch - m_camTrackPitch) * rotAlpha;
-
-        // Combine tracked rotation with Right-Stick swivel offset (unclamped by terrain floor)
-        m_camera.camYaw   = wrapAnglePi(m_camTrackYaw + m_camSwivelYaw);
-        m_camera.camPitch = std::clamp(m_camTrackPitch + m_camSwivelPitch, -1.35f, 1.35f);
+    } else {
+        // Classic 2D Orthographic Mode
+        m_camera.hasCustomBasis = false;
+        static constexpr float BASE_ZOOM_PX_PER_M = 1.0f / FT2M;
+        float targetZoom = 0.55f * BASE_ZOOM_PX_PER_M;
+        if (altitude < 550.0f * FT2M) {
+            float factor = 1.0f - (altitude / (550.0f * FT2M));
+            targetZoom = (0.55f + factor * 1.55f) * BASE_ZOOM_PX_PER_M;
+        }
+        m_camera.zoom += (targetZoom - m_camera.zoom) * (dt * 4.0f);
+        m_camera.x += (m_battleship.getX() - m_camera.x) * (dt * 6.0f);
+        m_camera.y += (m_battleship.getY() - m_camera.y) * (dt * 6.0f);
+        m_camera.z += (m_battleship.getZ() - m_camera.z) * (dt * 6.0f);
+        m_camera.x = std::clamp(m_camera.x, 300.0f * FT2M, m_terrain.getWorldWidth() - 300.0f * FT2M);
+        m_camera.y = std::min(m_camera.y, m_terrain.getWorldHeight() - 100.0f * FT2M);
     }
 
     m_lastBattleshipState = m_battleship.getState();

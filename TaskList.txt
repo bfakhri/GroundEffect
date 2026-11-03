@@ -1,22 +1,5 @@
-1. Start the lander in the landed position.
+1. Make a fixed tick rate for the physics engine. Aim for 256 hz.
 
-2. Don't stop the game when I land. Keep it going so we can take off again. 
+2. Make the ship slightly larger.
 
-3. Change the thruster animation to not pulse. Instead expel particle debris. If it is not too cumbersome, make the particle debris bounce off of the terrain. 
-
-4. Give the lander a boost function we will call "Impulse Thruster". When you press the boost button it will apply an impulse boost via the main thrusters for one frame. This should be enough to stop the lander cold during a medium velocity fall. 
-
-5. Implement ground effect hover thrusters that automatically fire (and modulate) to keep the vehicle from striking the ground when they are on. Give them a maximum thrust such that it will stop the vehicle from striking the ground only when the vehicle is falling at a somewhat slow speed. When left on, the vehicle should be able to hover and skate across the terrain. 
-
-6. The lander is really a battle ship. Make it look the part. 
-
-7. Rename all references to "Lander" to "Battleship". 
-
-8. Remove any maximum altitude. Allow the ship to fly as high as it wants to and the camera does not cut it off.
-
-9. The controller vibrates indefinitely after a crash. Set a max time of 2s for the vibration to last. 
-
-10. Add more stars. 
-
-11. Decrease boost by 2x.
-
+3. Add an FPS counter to the display, in the upper right corner, for both the physics engine and the graphics engine.
