@@ -703,6 +703,19 @@ bool testHeadlessGameEndToEnd() {
         for (int i = 0; i < 30; ++i) {
             game.stepFrame(DT);
         }
+
+        // Verify fixed 256 Hz physics tick rate and FPS counters
+        CHECK_NEAR(Game::PHYSICS_TICK_RATE, 256.0f, 1e-4f);
+        CHECK_NEAR(Game::PHYSICS_DT, 1.0f / 256.0f, 1e-6f);
+        int ticksBefore = game.getTotalPhysicsTicks();
+        for (int i = 0; i < 60; ++i) {
+            game.stepFrame(DT);
+        }
+        int ticksElapsed = game.getTotalPhysicsTicks() - ticksBefore;
+        // 60 frames at 1/60s = 1.0s simulated time -> 256 physics ticks (+/- 1 accumulator rounding tick)
+        CHECK(ticksElapsed >= 255 && ticksElapsed <= 257);
+        CHECK_NEAR(game.getPhysicsFps(), 256.0f, 5.0f);
+        CHECK_NEAR(game.getGraphicsFps(), 60.0f, 2.0f);
     }
 
     game.shutdown();
@@ -803,16 +816,22 @@ bool test3DFlightPitchHoverAndLandingSim() {
     SoundEngine sound;
     Battleship ship;
 
-    // Verify 3D wireframe mesh is populated with volumetric Z segments
+    // Verify 3D wireframe mesh is populated with volumetric Z segments and scaled by SHIP_SCALE (1.35x)
     CHECK(ship.getCraftLines3D().size() > 80);
+    CHECK_NEAR(Battleship::SHIP_SCALE, 1.35f, 1e-4f);
     bool hasNonZeroZ = false;
+    float maxAbsX = 0.0f;
+    float maxAbsZ = 0.0f;
     for (const auto& l : ship.getCraftLines3D()) {
         if (std::abs(l.z1) > 1.0f || std::abs(l.z2) > 1.0f) {
             hasNonZeroZ = true;
-            break;
         }
+        maxAbsX = std::max({maxAbsX, std::abs(l.x1), std::abs(l.x2)});
+        maxAbsZ = std::max({maxAbsZ, std::abs(l.z1), std::abs(l.z2)});
     }
     CHECK(hasNonZeroZ);
+    CHECK_NEAR(maxAbsX, 23.0f * FT2M * Battleship::SHIP_SCALE, 1e-3f);
+    CHECK_NEAR(maxAbsZ, 15.0f * FT2M * Battleship::SHIP_SCALE, 1e-3f);
 
     // A. Pitch RCS & Pitched Main Thruster Propulsion along +Z axis
     ship.reset(500.0f, 200.0f, 300.0f, 0.0f);

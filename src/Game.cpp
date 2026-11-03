@@ -200,11 +200,40 @@ void Game::run() {
 void Game::stepFrame(float dt) {
     handleInput();
 
+    const auto& state = m_input.getState();
+    m_pendingBoost = m_pendingBoost || state.boostPressed;
+    m_pendingAbort = m_pendingAbort || state.abortPressed;
+
     if (!m_paused) {
-        update(dt);
+        m_physicsAccumulator += dt;
+        // Cap accumulator to avoid spiral of death on extreme frame stalls
+        if (m_physicsAccumulator > 0.25f) {
+            m_physicsAccumulator = 0.25f;
+        }
+        while (m_physicsAccumulator >= PHYSICS_DT) {
+            update(PHYSICS_DT);
+            m_physicsAccumulator -= PHYSICS_DT;
+            m_totalPhysicsTicks++;
+            m_physicsWindowTicks++;
+        }
     }
 
     render();
+
+    m_graphicsWindowFrames++;
+    if (dt > 1e-6f) {
+        m_fpsWindowTimer += dt;
+        if (m_fpsWindowTimer >= 0.25f) {
+            m_graphicsFps = (float)m_graphicsWindowFrames / m_fpsWindowTimer;
+            m_physicsFps  = m_paused ? 0.0f : ((float)m_physicsWindowTicks / m_fpsWindowTimer);
+            m_graphicsWindowFrames = 0;
+            m_physicsWindowTicks   = 0;
+            m_fpsWindowTimer       = 0.0f;
+        } else if (m_totalPhysicsTicks <= 8) {
+            m_graphicsFps = 1.0f / dt;
+            m_physicsFps  = m_paused ? 0.0f : PHYSICS_TICK_RATE;
+        }
+    }
 }
 
 void Game::handleInput() {
@@ -363,8 +392,13 @@ void Game::update(float dt) {
         tRight = linked;
     }
 
-    // Update Battleship with 3D twin thruster, roll, pitch, yaw, and air brake inputs
-    m_battleship.update(dt, tLeft, tRight, state.rotateAxis, state.abortPressed, state.boostPressed,
+    // Update Battleship with 3D twin thruster, roll, pitch, yaw, and air brake inputs at fixed 256 Hz tick
+    bool abortTick = m_pendingAbort;
+    bool boostTick = m_pendingBoost;
+    m_pendingAbort = false;
+    m_pendingBoost = false;
+
+    m_battleship.update(dt, tLeft, tRight, state.rotateAxis, abortTick, boostTick,
                         m_terrain, m_sound, state.airBrakeHeld, state.pitchAxis, state.yawAxis);
 
     if (m_battleship.wasImpulseFired()) {
@@ -667,7 +701,17 @@ void Game::renderHUD() {
     VectorFont::drawText(m_renderer, ssFuel.str(), 670.0f, 25.0f, scale, fuelColor, m_crtGlow);
 
     std::string siteStr = "SITE: " + m_terrain.getSiteName();
-    VectorFont::drawText(m_renderer, siteStr, 970.0f, 25.0f, 1.8f, {180, 230, 255, 255}, m_crtGlow);
+    VectorFont::drawText(m_renderer, siteStr, 865.0f, 25.0f, 1.55f, {180, 230, 255, 255}, m_crtGlow);
+
+    // Upper-right corner dual FPS display: Physics Engine (Hz) & Graphics Engine (FPS)
+    float fpsX = m_screenWidth - 190.0f;
+    std::ostringstream ssPhysFps;
+    ssPhysFps << "PHYS: " << std::setw(3) << (int)std::round(m_physicsFps) << " FPS";
+    VectorFont::drawText(m_renderer, ssPhysFps.str(), fpsX, 13.0f, 1.5f, {120, 255, 160, 255}, m_crtGlow);
+
+    std::ostringstream ssGfxFps;
+    ssGfxFps << "GFX : " << std::setw(3) << (int)std::round(m_graphicsFps) << " FPS";
+    VectorFont::drawText(m_renderer, ssGfxFps.str(), fpsX, 31.0f, 1.5f, {160, 235, 255, 255}, m_crtGlow);
 
     VectorRenderer::drawLineScreen(m_renderer, 20.0f, 52.0f, m_screenWidth - 20.0f, 52.0f,
                                   {80, 140, 90, 180}, m_crtGlow);

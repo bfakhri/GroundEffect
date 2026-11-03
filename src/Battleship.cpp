@@ -150,10 +150,21 @@ void Battleship::initCraftGeometry() {
     m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M});
 
     // ── Full 3D Volumetric Wireframe Battleship Geometry (in Feet -> Meters) ──
+    auto scaleY = [](float yMeters) {
+        constexpr float skidY = 12.0f * FT2M;
+        return skidY + (yMeters - skidY) * SHIP_SCALE;
+    };
+    for (auto& seg : m_craftLines) {
+        seg.x1 *= SHIP_SCALE;
+        seg.y1 = scaleY(seg.y1);
+        seg.x2 *= SHIP_SCALE;
+        seg.y2 = scaleY(seg.y2);
+    }
+
     auto add3D = [&](float x1, float y1, float z1, float x2, float y2, float z2) {
         m_craftLines3D.push_back({
-            x1 * FT2M, y1 * FT2M, z1 * FT2M,
-            x2 * FT2M, y2 * FT2M, z2 * FT2M
+            x1 * FT2M * SHIP_SCALE, scaleY(y1 * FT2M), z1 * FT2M * SHIP_SCALE,
+            x2 * FT2M * SHIP_SCALE, scaleY(y2 * FT2M), z2 * FT2M * SHIP_SCALE
         });
     };
 
@@ -1409,8 +1420,8 @@ void Battleship::renderDropShadow(SDL_Renderer* renderer, const Camera2D& cam, c
     VectorRenderer::drawLineWorld3D(renderer, cam, m_x, skidY, m_z, m_x, surfY, m_z, plumbColor, glow * 0.85f, 1);
 
     // 2. 3D Projected Ground Target Reticle on Terrain Surface directly beneath craft
-    float rX = 18.0f * FT2M;
-    float rZ = 12.0f * FT2M;
+    float rX = 18.0f * FT2M * SHIP_SCALE;
+    float rZ = 12.0f * FT2M * SHIP_SCALE;
     float yFL = terrain.getSurfaceHeightAt(m_x - rX, m_z + rZ) - 0.15f;
     float yFR = terrain.getSurfaceHeightAt(m_x + rX, m_z + rZ) - 0.15f;
     float yBL = terrain.getSurfaceHeightAt(m_x - rX, m_z - rZ) - 0.15f;
@@ -1493,16 +1504,27 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, craftColor, glow, 2);
     }
 
+    auto scaleLocalPt = [](float lx, float ly, float lz) -> Vec3 {
+        constexpr float skidY = 12.0f * FT2M;
+        return {
+            lx * SHIP_SCALE,
+            skidY + (ly - skidY) * SHIP_SCALE,
+            lz * SHIP_SCALE
+        };
+    };
+
     // 3. Draw 3D Steady Nozzle Core Plume Cones
     auto drawSteadyNozzleFlare3D = [&](float nozzleCenterX, float throttle) {
-        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M);
-        float flameWidth = 2.4f * FT2M;
+        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M) * SHIP_SCALE;
+        float flameWidth = 2.4f * FT2M * SHIP_SCALE;
+        float nozY = 12.0f * FT2M + (5.0f * FT2M - 12.0f * FT2M) * SHIP_SCALE;
+        float nozX = nozzleCenterX * SHIP_SCALE;
 
-        Vec3 tip = localToWorldPoint({nozzleCenterX, 5.0f * FT2M + flameLength, 0.0f});
-        Vec3 r1  = localToWorldPoint({nozzleCenterX - flameWidth, 5.0f * FT2M, 0.0f});
-        Vec3 r2  = localToWorldPoint({nozzleCenterX + flameWidth, 5.0f * FT2M, 0.0f});
-        Vec3 r3  = localToWorldPoint({nozzleCenterX, 5.0f * FT2M, -flameWidth});
-        Vec3 r4  = localToWorldPoint({nozzleCenterX, 5.0f * FT2M,  flameWidth});
+        Vec3 tip = localToWorldPoint({nozX, nozY + flameLength, 0.0f});
+        Vec3 r1  = localToWorldPoint({nozX - flameWidth, nozY, 0.0f});
+        Vec3 r2  = localToWorldPoint({nozX + flameWidth, nozY, 0.0f});
+        Vec3 r3  = localToWorldPoint({nozX, nozY, -flameWidth});
+        Vec3 r4  = localToWorldPoint({nozX, nozY,  flameWidth});
 
         SDL_Color flareColor = {255, 235, 160, 255};
         VectorRenderer::drawLineWorld3D(renderer, cam, r1, tip, flareColor, glow * 1.5f, 2);
@@ -1521,23 +1543,23 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
 
     // 4. Draw 3D RCS Attitude Thruster Puffs (Roll & Pitch)
     if (m_rcsPuffLeft > 0.0f && m_state == BattleshipState::FLYING) {
-        Vec3 p1 = localToWorldPoint({-14.0f * FT2M, -8.0f * FT2M, 0.0f});
-        Vec3 p2 = localToWorldPoint({-22.0f * FT2M, -8.0f * FT2M, 0.0f});
+        Vec3 p1 = localToWorldPoint(scaleLocalPt(-14.0f * FT2M, -8.0f * FT2M, 0.0f));
+        Vec3 p2 = localToWorldPoint(scaleLocalPt(-22.0f * FT2M, -8.0f * FT2M, 0.0f));
         VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
     if (m_rcsPuffRight > 0.0f && m_state == BattleshipState::FLYING) {
-        Vec3 p1 = localToWorldPoint({14.0f * FT2M, -8.0f * FT2M, 0.0f});
-        Vec3 p2 = localToWorldPoint({22.0f * FT2M, -8.0f * FT2M, 0.0f});
+        Vec3 p1 = localToWorldPoint(scaleLocalPt(14.0f * FT2M, -8.0f * FT2M, 0.0f));
+        Vec3 p2 = localToWorldPoint(scaleLocalPt(22.0f * FT2M, -8.0f * FT2M, 0.0f));
         VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
     if (m_rcsPuffAft > 0.0f && m_state == BattleshipState::FLYING) {
-        Vec3 p1 = localToWorldPoint({0.0f, -8.0f * FT2M, -11.0f * FT2M});
-        Vec3 p2 = localToWorldPoint({0.0f, -8.0f * FT2M, -19.0f * FT2M});
+        Vec3 p1 = localToWorldPoint(scaleLocalPt(0.0f, -8.0f * FT2M, -11.0f * FT2M));
+        Vec3 p2 = localToWorldPoint(scaleLocalPt(0.0f, -8.0f * FT2M, -19.0f * FT2M));
         VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
     if (m_rcsPuffFore > 0.0f && m_state == BattleshipState::FLYING) {
-        Vec3 p1 = localToWorldPoint({0.0f, -8.0f * FT2M, 11.0f * FT2M});
-        Vec3 p2 = localToWorldPoint({0.0f, -8.0f * FT2M, 19.0f * FT2M});
+        Vec3 p1 = localToWorldPoint(scaleLocalPt(0.0f, -8.0f * FT2M, 11.0f * FT2M));
+        Vec3 p2 = localToWorldPoint(scaleLocalPt(0.0f, -8.0f * FT2M, 19.0f * FT2M));
         VectorRenderer::drawLineWorld3D(renderer, cam, p1, p2, rcsColor, glow * 1.5f, 2);
     }
 
@@ -1546,8 +1568,8 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         SDL_Color brakeColor = {255, 195, 70, 255};
         float d = m_airBrakeDeploy;
         auto drawLocalSeg3D = [&](float lx1, float ly1, float lz1, float lx2, float ly2, float lz2, int thick = 2) {
-            Vec3 w1 = localToWorldPoint({lx1, ly1, lz1});
-            Vec3 w2 = localToWorldPoint({lx2, ly2, lz2});
+            Vec3 w1 = localToWorldPoint(scaleLocalPt(lx1, ly1, lz1));
+            Vec3 w2 = localToWorldPoint(scaleLocalPt(lx2, ly2, lz2));
             VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, brakeColor, glow * 1.4f, thick);
         };
 
@@ -1567,9 +1589,9 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         float hWid = 2.0f * FT2M;
 
         auto drawHoverCone3D = [&](float centerX, float centerZ) {
-            Vec3 w1  = localToWorldPoint({centerX - hWid, 10.5f * FT2M, centerZ});
-            Vec3 w2  = localToWorldPoint({centerX + hWid, 10.5f * FT2M, centerZ});
-            Vec3 w3  = localToWorldPoint({centerX, 10.5f * FT2M + hLen, centerZ});
+            Vec3 w1  = localToWorldPoint(scaleLocalPt(centerX - hWid, 10.5f * FT2M, centerZ));
+            Vec3 w2  = localToWorldPoint(scaleLocalPt(centerX + hWid, 10.5f * FT2M, centerZ));
+            Vec3 w3  = localToWorldPoint(scaleLocalPt(centerX, 10.5f * FT2M + hLen, centerZ));
             VectorRenderer::drawLineWorld3D(renderer, cam, w1, w3, hoverColor, glow * 1.6f, 2);
             VectorRenderer::drawLineWorld3D(renderer, cam, w2, w3, hoverColor, glow * 1.6f, 2);
             VectorRenderer::drawLineWorld3D(renderer, cam, w1, w2, hoverColor, glow * 1.2f, 1);

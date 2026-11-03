@@ -154,6 +154,7 @@ public:
     static constexpr float HOVER_MAX_ACCEL = 14.0208f;// [m/s^2] Max upward acceleration of hover thrusters (46.0 ft/s^2)
     static constexpr float HULL_INERTIA = 12.774f;    // [m^2] Specific rotational moment of inertia (r_g^2)
     static constexpr float RCS_THRUST_ACCEL = 35.0f;  // [m/s^2] Max lateral thrust acceleration from RCS thruster
+    static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;

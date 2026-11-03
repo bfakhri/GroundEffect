@@ -26,6 +26,9 @@ public:
     void stepFrame(float dt); // dt in [s] - single-frame step for deterministic testing
     void shutdown();
 
+    static constexpr float PHYSICS_TICK_RATE = 256.0f;            // [Hz] Fixed physics engine tick rate
+    static constexpr float PHYSICS_DT        = 1.0f / 256.0f;     // [s] Fixed physics timestep (3.90625 ms)
+
     // Inspection & Test Accessors
     Battleship& getBattleship() { return m_battleship; }
     const Battleship& getBattleship() const { return m_battleship; }
@@ -43,6 +46,9 @@ public:
     bool isRunning() const { return m_running; }
     bool isThrottleLockMode() const { return m_throttleLockMode; }
     float getCrashVibrationTimer() const { return m_crashVibrationTimer; }
+    float getPhysicsFps() const { return m_physicsFps; }
+    float getGraphicsFps() const { return m_graphicsFps; }
+    uint64_t getTotalPhysicsTicks() const { return m_totalPhysicsTicks; }
     const std::string& getStatusMessage() const { return m_statusMessage; }
     const std::string& getStatusSubMessage() const { return m_statusSubMessage; }
 
@@ -106,4 +112,15 @@ private:
     float m_camTrackPitch = 0.24f; // [rad] Smoothed Car-Cam / Target-Cam elevation pitch angle
     float m_camSwivelYaw = 0.0f;   // [rad] Right-stick swivel yaw offset (auto-centers to 0 when stick released)
     float m_camSwivelPitch = 0.0f; // [rad] Right-stick swivel pitch offset (auto-centers to 0 when stick released)
+
+    // Fixed 256 Hz physics timestep accumulator & dual FPS telemetry state
+    float m_physicsAccumulator = 0.0f;    // [s] Unconsumed time accumulator for 256 Hz fixed physics steps
+    bool m_pendingBoost = false;          // [flag] Latched one-shot boost trigger for next physics tick
+    bool m_pendingAbort = false;          // [flag] Latched one-shot abort trigger for next physics tick
+    uint64_t m_totalPhysicsTicks = 0;     // [count] Cumulative 256 Hz physics ticks executed
+    int m_physicsWindowTicks = 0;         // [count] Physics ticks in current measurement window
+    int m_graphicsWindowFrames = 0;       // [count] Graphics frames in current measurement window
+    float m_fpsWindowTimer = 0.0f;        // [s] Elapsed time in current FPS measurement window
+    float m_physicsFps = PHYSICS_TICK_RATE; // [Hz] Measured physics engine tick rate
+    float m_graphicsFps = 60.0f;          // [FPS] Measured graphics engine frame rate
 };
