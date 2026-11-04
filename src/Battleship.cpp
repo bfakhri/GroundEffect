@@ -67,89 +67,47 @@ void Battleship::initCraftGeometry() {
     m_craftLines.clear();
     m_craftLines3D.clear();
 
-    // ── 2D Profile Geometry (Z=0 Silhouette) ────────────────────────────────
-    // 1. Armored Citadel & Main Hull
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M,  11.0f * FT2M,  0.0f * FT2M});
-    m_craftLines.push_back({-15.0f * FT2M, -6.0f * FT2M,  15.0f * FT2M, -6.0f * FT2M});
-    m_craftLines.push_back({-12.0f * FT2M, -12.0f * FT2M, 12.0f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -16.0f * FT2M, -4.0f * FT2M});
-    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -8.0f * FT2M});
-    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -8.0f * FT2M});
-    m_craftLines.push_back({-15.0f * FT2M, -8.0f * FT2M, -12.0f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({ 15.0f * FT2M, -8.0f * FT2M,  12.0f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M,  16.0f * FT2M, -4.0f * FT2M});
+    // ── 2D Cross-Section Silhouette (Z=0 Ranger Wedge & Tucked Wings Profile) ──
+    // 1. Flat Ventral Heatshield Belly & Sloped Faceted Upper Fuselage
+    m_craftLines.push_back({-14.0f * FT2M,  8.5f * FT2M,  14.0f * FT2M,  8.5f * FT2M});
+    m_craftLines.push_back({-14.0f * FT2M,  8.5f * FT2M, -11.5f * FT2M,  1.5f * FT2M});
+    m_craftLines.push_back({ 14.0f * FT2M,  8.5f * FT2M,  11.5f * FT2M,  1.5f * FT2M});
+    m_craftLines.push_back({-11.5f * FT2M,  1.5f * FT2M,  -6.5f * FT2M, -4.5f * FT2M});
+    m_craftLines.push_back({ 11.5f * FT2M,  1.5f * FT2M,   6.5f * FT2M, -4.5f * FT2M});
+    m_craftLines.push_back({ -6.5f * FT2M, -4.5f * FT2M,   6.5f * FT2M, -4.5f * FT2M});
+    // Cockpit canopy frame lines
+    m_craftLines.push_back({ -5.5f * FT2M, -4.5f * FT2M,  -3.5f * FT2M, -7.2f * FT2M});
+    m_craftLines.push_back({  5.5f * FT2M, -4.5f * FT2M,   3.5f * FT2M, -7.2f * FT2M});
+    m_craftLines.push_back({ -3.5f * FT2M, -7.2f * FT2M,   3.5f * FT2M, -7.2f * FT2M});
+    m_craftLines.push_back({  0.0f * FT2M, -7.2f * FT2M,   0.0f * FT2M, -4.5f * FT2M});
 
-    // 2. Command Bridge Superstructure & Sensor Mast
-    m_craftLines.push_back({-10.0f * FT2M, -12.0f * FT2M, -6.0f * FT2M, -18.0f * FT2M});
-    m_craftLines.push_back({ 10.0f * FT2M, -12.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});
-    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M,  6.0f * FT2M, -18.0f * FT2M});
-    m_craftLines.push_back({-6.0f * FT2M, -18.0f * FT2M, -4.0f * FT2M, -20.5f * FT2M});
-    m_craftLines.push_back({ 6.0f * FT2M, -18.0f * FT2M,  4.0f * FT2M, -20.5f * FT2M});
-    m_craftLines.push_back({-4.0f * FT2M, -20.5f * FT2M,  4.0f * FT2M, -20.5f * FT2M});
-    m_craftLines.push_back({-4.5f * FT2M, -18.8f * FT2M,  4.5f * FT2M, -18.8f * FT2M});
-    m_craftLines.push_back({ 0.0f * FT2M, -20.5f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
-    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  2.5f * FT2M, -22.0f * FT2M});
-    m_craftLines.push_back({-2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
-    m_craftLines.push_back({ 2.5f * FT2M, -22.0f * FT2M,  0.0f * FT2M, -23.5f * FT2M});
+    // 2. Small Tucked-In Delta Wings & Canted Twin Dorsal Stabilizers
+    m_craftLines.push_back({-14.0f * FT2M,  8.5f * FT2M, -23.0f * FT2M,  7.5f * FT2M});
+    m_craftLines.push_back({-23.0f * FT2M,  7.5f * FT2M, -21.5f * FT2M,  4.8f * FT2M});
+    m_craftLines.push_back({-21.5f * FT2M,  4.8f * FT2M, -11.5f * FT2M,  1.5f * FT2M});
+    m_craftLines.push_back({-14.5f * FT2M,  2.5f * FT2M, -12.0f * FT2M, -6.5f * FT2M});
+    m_craftLines.push_back({-12.0f * FT2M, -6.5f * FT2M, -10.5f * FT2M,  1.5f * FT2M});
 
-    // 3. Twin Heavy Artillery Turrets
-    m_craftLines.push_back({-8.5f * FT2M, -12.0f * FT2M, -7.5f * FT2M, -14.5f * FT2M});
-    m_craftLines.push_back({-7.5f * FT2M, -14.5f * FT2M, -3.5f * FT2M, -14.5f * FT2M});
-    m_craftLines.push_back({-3.5f * FT2M, -14.5f * FT2M, -2.5f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({-6.5f * FT2M, -14.5f * FT2M, -6.5f * FT2M, -17.5f * FT2M});
-    m_craftLines.push_back({-4.5f * FT2M, -14.5f * FT2M, -4.5f * FT2M, -17.5f * FT2M});
-    m_craftLines.push_back({-7.0f * FT2M, -17.5f * FT2M, -4.0f * FT2M, -17.5f * FT2M});
+    m_craftLines.push_back({ 14.0f * FT2M,  8.5f * FT2M,  23.0f * FT2M,  7.5f * FT2M});
+    m_craftLines.push_back({ 23.0f * FT2M,  7.5f * FT2M,  21.5f * FT2M,  4.8f * FT2M});
+    m_craftLines.push_back({ 21.5f * FT2M,  4.8f * FT2M,  11.5f * FT2M,  1.5f * FT2M});
+    m_craftLines.push_back({ 14.5f * FT2M,  2.5f * FT2M,  12.0f * FT2M, -6.5f * FT2M});
+    m_craftLines.push_back({ 12.0f * FT2M, -6.5f * FT2M,  10.5f * FT2M,  1.5f * FT2M});
 
-    m_craftLines.push_back({ 2.5f * FT2M, -12.0f * FT2M,  3.5f * FT2M, -14.5f * FT2M});
-    m_craftLines.push_back({ 3.5f * FT2M, -14.5f * FT2M,  7.5f * FT2M, -14.5f * FT2M});
-    m_craftLines.push_back({ 7.5f * FT2M, -14.5f * FT2M,  8.5f * FT2M, -12.0f * FT2M});
-    m_craftLines.push_back({ 4.5f * FT2M, -14.5f * FT2M,  4.5f * FT2M, -17.5f * FT2M});
-    m_craftLines.push_back({ 6.5f * FT2M, -14.5f * FT2M,  6.5f * FT2M, -17.5f * FT2M});
-    m_craftLines.push_back({ 4.0f * FT2M, -17.5f * FT2M,  7.0f * FT2M, -17.5f * FT2M});
+    // 3. Medium Bottom VTOL Thruster Bells & Low-Profile Ventral Skids
+    m_craftLines.push_back({ -8.0f * FT2M,  8.5f * FT2M,  -8.5f * FT2M, 10.5f * FT2M});
+    m_craftLines.push_back({ -3.0f * FT2M,  8.5f * FT2M,  -2.5f * FT2M, 10.5f * FT2M});
+    m_craftLines.push_back({ -8.5f * FT2M, 10.5f * FT2M,  -2.5f * FT2M, 10.5f * FT2M});
+    m_craftLines.push_back({  3.0f * FT2M,  8.5f * FT2M,   2.5f * FT2M, 10.5f * FT2M});
+    m_craftLines.push_back({  8.0f * FT2M,  8.5f * FT2M,   8.5f * FT2M, 10.5f * FT2M});
+    m_craftLines.push_back({  2.5f * FT2M, 10.5f * FT2M,   8.5f * FT2M, 10.5f * FT2M});
 
-    // 4. Flank Torpedo Sponsons
-    m_craftLines.push_back({-15.0f * FT2M, -7.5f * FT2M, -19.5f * FT2M, -5.5f * FT2M});
-    m_craftLines.push_back({-19.5f * FT2M, -5.5f * FT2M, -19.5f * FT2M, -2.5f * FT2M});
-    m_craftLines.push_back({-19.5f * FT2M, -2.5f * FT2M, -15.0f * FT2M, -1.0f * FT2M});
-    m_craftLines.push_back({-19.5f * FT2M, -4.0f * FT2M, -15.0f * FT2M, -4.0f * FT2M});
+    m_craftLines.push_back({-13.5f * FT2M,  8.5f * FT2M, -16.5f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({-19.5f * FT2M, 12.0f * FT2M, -13.5f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ 13.5f * FT2M,  8.5f * FT2M,  16.5f * FT2M, 12.0f * FT2M});
+    m_craftLines.push_back({ 13.5f * FT2M, 12.0f * FT2M,  19.5f * FT2M, 12.0f * FT2M});
 
-    m_craftLines.push_back({ 15.0f * FT2M, -7.5f * FT2M,  19.5f * FT2M, -5.5f * FT2M});
-    m_craftLines.push_back({ 19.5f * FT2M, -5.5f * FT2M,  19.5f * FT2M, -2.5f * FT2M});
-    m_craftLines.push_back({ 19.5f * FT2M, -2.5f * FT2M,  15.0f * FT2M, -1.0f * FT2M});
-    m_craftLines.push_back({ 19.5f * FT2M, -4.0f * FT2M,  15.0f * FT2M, -4.0f * FT2M});
-
-    // 5. Twin Engine Cowlings
-    m_craftLines.push_back({-9.0f * FT2M, 0.0f * FT2M, -9.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-9.0f * FT2M, 5.0f * FT2M, -2.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({-8.0f * FT2M, 2.5f * FT2M, -3.0f * FT2M, 2.5f * FT2M});
-
-    m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  2.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({ 9.0f * FT2M, 0.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({ 2.0f * FT2M, 5.0f * FT2M,  9.0f * FT2M, 5.0f * FT2M});
-    m_craftLines.push_back({ 3.0f * FT2M, 2.5f * FT2M,  8.0f * FT2M, 2.5f * FT2M});
-
-    m_craftLines.push_back({-2.0f * FT2M, 0.0f * FT2M, -1.5f * FT2M, 3.0f * FT2M});
-    m_craftLines.push_back({ 2.0f * FT2M, 0.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
-    m_craftLines.push_back({-1.5f * FT2M, 3.0f * FT2M,  1.5f * FT2M, 3.0f * FT2M});
-
-    // 6. Combat Landing Skids
-    m_craftLines.push_back({-11.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({-16.0f * FT2M, -4.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({ -6.0f * FT2M,  0.0f * FT2M, -18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -13.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({-23.0f * FT2M, 12.0f * FT2M, -25.0f * FT2M,  9.5f * FT2M});
-    m_craftLines.push_back({-13.0f * FT2M, 12.0f * FT2M, -11.0f * FT2M,  9.5f * FT2M});
-
-    m_craftLines.push_back({ 11.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({ 16.0f * FT2M, -4.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({  6.0f * FT2M,  0.0f * FT2M,  18.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  23.0f * FT2M, 12.0f * FT2M});
-    m_craftLines.push_back({ 23.0f * FT2M, 12.0f * FT2M,  25.0f * FT2M,  9.5f * FT2M});
-    m_craftLines.push_back({ 13.0f * FT2M, 12.0f * FT2M,  11.0f * FT2M,  9.5f * FT2M});
-
-    // ── Full 3D Volumetric Wireframe Battleship Geometry (in Feet -> Meters) ──
+    // ── Full 3D Volumetric Interstellar Ranger Geometry (in Feet -> Meters) ──
     auto scaleY = [](float yMeters) {
         constexpr float skidY = 12.0f * FT2M;
         return skidY + (yMeters - skidY) * SHIP_SCALE;
@@ -168,128 +126,126 @@ void Battleship::initCraftGeometry() {
         });
     };
 
-    // A. 3D Armored Citadel Hull Rings (Fore z = +9 ft, Aft z = -9 ft)
-    const float zHull[2] = {-9.0f, 9.0f};
-    for (float z : zHull) {
-        add3D(-11.0f,  0.0f, z,  11.0f,  0.0f, z);
-        add3D(-16.0f, -4.0f, z,  16.0f, -4.0f, z);
-        add3D(-12.0f, -12.0f, z, 12.0f, -12.0f, z);
-        add3D(-11.0f,  0.0f, z, -16.0f, -4.0f, z);
-        add3D( 11.0f,  0.0f, z,  16.0f, -4.0f, z);
-        add3D(-16.0f, -4.0f, z, -15.0f, -8.0f, z);
-        add3D( 16.0f, -4.0f, z,  15.0f, -8.0f, z);
-        add3D(-15.0f, -8.0f, z, -12.0f, -12.0f, z);
-        add3D( 15.0f, -8.0f, z,  12.0f, -12.0f, z);
-    }
+    // A. Tapered Chisel Prow (z = +15.0 ft) & Forward Wedge Glacis (z = +7.0 ft)
+    add3D(-4.5f,  8.2f, 15.0f,  4.5f,  8.2f, 15.0f); // Leading chisel bottom lip
+    add3D(-3.8f,  5.8f, 15.0f,  3.8f,  5.8f, 15.0f); // Leading chisel upper edge
+    add3D(-4.5f,  8.2f, 15.0f, -3.8f,  5.8f, 15.0f);
+    add3D( 4.5f,  8.2f, 15.0f,  3.8f,  5.8f, 15.0f);
 
-    // Longitudinal 3D Citadel Chines connecting Aft (-9 ft) to Fore (+9 ft)
-    add3D(-11.0f,  0.0f, -9.0f, -11.0f,  0.0f,  9.0f);
-    add3D( 11.0f,  0.0f, -9.0f,  11.0f,  0.0f,  9.0f);
-    add3D(-16.0f, -4.0f, -9.0f, -16.0f, -4.0f,  9.0f);
-    add3D( 16.0f, -4.0f, -9.0f,  16.0f, -4.0f,  9.0f);
-    add3D(-15.0f, -8.0f, -9.0f, -15.0f, -8.0f,  9.0f);
-    add3D( 15.0f, -8.0f, -9.0f,  15.0f, -8.0f,  9.0f);
-    add3D(-12.0f, -12.0f, -9.0f, -12.0f, -12.0f, 9.0f);
-    add3D( 12.0f, -12.0f, -9.0f,  12.0f, -12.0f, 9.0f);
+    // Forward hull station at z = +7.0 ft (ahead of cockpit canopy)
+    add3D(-10.0f, 8.5f,  7.0f,  10.0f, 8.5f,  7.0f);
+    add3D( -8.5f, 2.5f,  7.0f,   8.5f, 2.5f,  7.0f);
+    add3D(-10.0f, 8.5f,  7.0f,  -8.5f, 2.5f,  7.0f);
+    add3D( 10.0f, 8.5f,  7.0f,   8.5f, 2.5f,  7.0f);
 
-    // Beveled Bow Prow (z = +13.5 ft) & Stern Bulkhead (z = -13.5 ft)
-    for (float signZ : {-1.0f, 1.0f}) {
-        float zMid = 9.0f * signZ;
-        float zTip = 13.5f * signZ;
-        add3D(-7.0f, -2.0f, zTip,  7.0f, -2.0f, zTip);
-        add3D(-7.0f, -10.0f, zTip, 7.0f, -10.0f, zTip);
-        add3D(-7.0f, -2.0f, zTip, -7.0f, -10.0f, zTip);
-        add3D( 7.0f, -2.0f, zTip,  7.0f, -10.0f, zTip);
-        add3D(-11.0f,  0.0f, zMid, -7.0f, -2.0f, zTip);
-        add3D( 11.0f,  0.0f, zMid,  7.0f, -2.0f, zTip);
-        add3D(-12.0f, -12.0f, zMid, -7.0f, -10.0f, zTip);
-        add3D( 12.0f, -12.0f, zMid,  7.0f, -10.0f, zTip);
-    }
+    // Chines connecting Chisel Prow (+15 ft) to Forward Glacis (+7 ft)
+    add3D(-4.5f,  8.2f, 15.0f, -10.0f, 8.5f,  7.0f);
+    add3D( 4.5f,  8.2f, 15.0f,  10.0f, 8.5f,  7.0f);
+    add3D(-3.8f,  5.8f, 15.0f,  -8.5f, 2.5f,  7.0f);
+    add3D( 3.8f,  5.8f, 15.0f,   8.5f, 2.5f,  7.0f);
+    add3D( 0.0f,  5.8f, 15.0f,   0.0f, 2.5f,  7.0f); // Center nose spine
 
-    // B. 3D Command Bridge Superstructure & Sensor Mast
-    const float zBr[2] = {-4.5f, 4.5f};
-    for (float z : zBr) {
-        add3D(-10.0f, -12.0f, z, -6.0f, -18.0f, z);
-        add3D( 10.0f, -12.0f, z,  6.0f, -18.0f, z);
-        add3D(-6.0f,  -18.0f, z,  6.0f, -18.0f, z);
-        add3D(-6.0f,  -18.0f, z, -4.0f, -20.5f, z);
-        add3D( 6.0f,  -18.0f, z,  4.0f, -20.5f, z);
-        add3D(-4.0f,  -20.5f, z,  4.0f, -20.5f, z);
-    }
-    add3D(-6.0f, -18.0f, -4.5f, -6.0f, -18.0f, 4.5f);
-    add3D( 6.0f, -18.0f, -4.5f,  6.0f, -18.0f, 4.5f);
-    add3D(-4.0f, -20.5f, -4.5f, -4.0f, -20.5f, 4.5f);
-    add3D( 4.0f, -20.5f, -4.5f,  4.0f, -20.5f, 4.5f);
-    // 3D Radar & Targeting Mast
-    add3D( 0.0f, -20.5f,  0.0f,  0.0f, -24.0f,  0.0f);
-    add3D(-3.0f, -22.2f,  0.0f,  3.0f, -22.2f,  0.0f);
-    add3D( 0.0f, -22.2f, -3.0f,  0.0f, -22.2f,  3.0f);
-    add3D(-3.0f, -22.2f,  0.0f,  0.0f, -24.0f,  0.0f);
-    add3D( 3.0f, -22.2f,  0.0f,  0.0f, -24.0f,  0.0f);
+    // B. Faceted Ranger Cockpit Canopy & Mid-Fuselage Wedge (z = +7.0 ft to z = -3.0 ft)
+    add3D( -5.5f, -5.8f,  1.5f,   5.5f, -5.8f,  1.5f); // Canopy crest bar
+    add3D( -8.5f,  2.5f,  7.0f,  -5.5f, -5.8f,  1.5f); // Left windshield pillar
+    add3D(  8.5f,  2.5f,  7.0f,   5.5f, -5.8f,  1.5f); // Right windshield pillar
+    add3D( -3.0f,  2.5f,  7.0f,  -2.2f, -5.8f,  1.5f); // Inner port window frame
+    add3D(  3.0f,  2.5f,  7.0f,   2.2f, -5.8f,  1.5f); // Inner starboard window frame
+    add3D(  0.0f,  2.5f,  7.0f,   0.0f, -5.8f,  1.5f); // Center cockpit mullion
+    add3D( -7.0f, -1.6f,  4.2f,   7.0f, -1.6f,  4.2f); // Transverse viewport glazing bar
 
-    // C. Port & Starboard 3D Dual-Barrel Artillery Turrets
+    // Mid-Aft Hull Station (z = -3.0 ft) & Stern Bulkhead (z = -12.0 ft)
+    add3D(-14.0f,  8.5f, -3.0f,  14.0f,  8.5f, -3.0f);
+    add3D(-11.5f,  1.5f, -3.0f,  -6.5f, -5.2f, -3.0f);
+    add3D( 11.5f,  1.5f, -3.0f,   6.5f, -5.2f, -3.0f);
+    add3D( -6.5f, -5.2f, -3.0f,   6.5f, -5.2f, -3.0f);
+    add3D(-14.0f,  8.5f, -3.0f, -11.5f,  1.5f, -3.0f);
+    add3D( 14.0f,  8.5f, -3.0f,  11.5f,  1.5f, -3.0f);
+
+    add3D(-13.5f,  8.5f, -12.0f, 13.5f,  8.5f, -12.0f);
+    add3D(-11.0f,  1.5f, -12.0f, -6.5f, -3.8f, -12.0f);
+    add3D( 11.0f,  1.5f, -12.0f,  6.5f, -3.8f, -12.0f);
+    add3D( -6.5f, -3.8f, -12.0f,  6.5f, -3.8f, -12.0f);
+    add3D(-13.5f,  8.5f, -12.0f, -11.0f, 1.5f, -12.0f);
+    add3D( 13.5f,  8.5f, -12.0f,  11.0f, 1.5f, -12.0f);
+
+    // Longitudinal Fuselage Spine & Chines (z = +7 ft -> -3 ft -> -12 ft)
     for (float sX : {-1.0f, 1.0f}) {
-        float xIn  = 2.8f * sX;
-        float xOut = 8.2f * sX;
-        float xB1  = 4.5f * sX;
-        float xB2  = 6.5f * sX;
-        add3D(xIn,  -12.0f, -3.0f, xOut, -12.0f, -3.0f);
-        add3D(xIn,  -12.0f,  3.0f, xOut, -12.0f,  3.0f);
-        add3D(xIn,  -14.5f, -2.0f, xOut, -14.5f, -2.0f);
-        add3D(xIn,  -14.5f,  2.0f, xOut, -14.5f,  2.0f);
-        add3D(xIn,  -14.5f, -2.0f, xIn,  -14.5f,  2.0f);
-        add3D(xOut, -14.5f, -2.0f, xOut, -14.5f,  2.0f);
-        add3D(xB1,  -14.5f,  1.0f, xB1,  -17.8f,  3.5f);
-        add3D(xB2,  -14.5f,  1.0f, xB2,  -17.8f,  3.5f);
+        add3D(10.0f * sX,  8.5f,  7.0f, 14.0f * sX,  8.5f,  -3.0f);
+        add3D(14.0f * sX,  8.5f, -3.0f, 13.5f * sX,  8.5f, -12.0f);
+        add3D( 8.5f * sX,  2.5f,  7.0f, 11.5f * sX,  1.5f,  -3.0f);
+        add3D(11.5f * sX,  1.5f, -3.0f, 11.0f * sX,  1.5f, -12.0f);
+        add3D( 5.5f * sX, -5.8f,  1.5f,  6.5f * sX, -5.2f,  -3.0f);
+        add3D( 6.5f * sX, -5.2f, -3.0f,  6.5f * sX, -3.8f, -12.0f);
+    }
+    add3D(0.0f, -5.8f, 1.5f, 0.0f, -3.8f, -12.0f); // Dorsal centerline ridge
+
+    // C. Small Tucked-In Delta Wings (spanning to x = ±23.0 ft) & Canted Twin Dorsal Fins
+    for (float sX : {-1.0f, 1.0f}) {
+        // Wing leading edge swept back from fuselage shoulder (z = +4.0 ft) to tucked wingtip (x = ±23.0 ft, z = -9.5 ft)
+        add3D(11.0f * sX,  6.5f,   4.0f, 23.0f * sX,  7.5f,  -9.5f);
+        add3D(23.0f * sX,  7.5f,  -9.5f, 23.0f * sX,  7.2f, -13.0f); // Wingtip chord
+        add3D(23.0f * sX,  7.2f, -13.0f, 13.5f * sX,  8.5f, -12.0f); // Wing trailing edge
+        add3D(11.5f * sX,  3.5f,   1.0f, 21.5f * sX,  5.2f, -11.0f); // Upper winglet bevel
+        add3D(21.5f * sX,  5.2f, -11.0f, 23.0f * sX,  7.5f,  -9.5f);
+        add3D(21.5f * sX,  5.2f, -11.0f, 11.0f * sX,  1.5f, -12.0f);
+
+        // Canted Twin Dorsal Vertical Stabilizers (Interstellar Ranger angled tail fins)
+        add3D(13.0f * sX,  2.5f,  -3.5f, 11.2f * sX, -6.5f,  -8.5f); // Fin leading edge
+        add3D(11.2f * sX, -6.5f,  -8.5f, 11.2f * sX, -6.2f, -12.5f); // Fin tip
+        add3D(11.2f * sX, -6.2f, -12.5f, 12.8f * sX,  2.5f, -12.0f); // Fin trailing edge
     }
 
-    // D. Port & Starboard 3D Flank Torpedo Sponsons
-    for (float sX : {-1.0f, 1.0f}) {
-        for (float z : {-4.5f, 4.5f}) {
-            add3D(15.0f * sX, -7.5f, z, 19.5f * sX, -5.5f, z);
-            add3D(19.5f * sX, -5.5f, z, 19.5f * sX, -2.5f, z);
-            add3D(19.5f * sX, -2.5f, z, 15.0f * sX, -1.0f, z);
+    // D. Two Large Rear Main Thrusters on the Back of the Ship (z = -12.0 ft to -15.0 ft)
+    for (float cx : {-4.8f, 4.8f}) {
+        const float cy = 2.8f;
+        const float rBase = 3.2f;
+        const float rBell = 4.0f;
+        const int segs = 8;
+        for (int i = 0; i < segs; ++i) {
+            float a1 = (float)i * (6.2831853f / segs);
+            float a2 = (float)(i + 1) * (6.2831853f / segs);
+            float x1f = cx + rBase * std::cos(a1), y1f = cy + rBase * std::sin(a1);
+            float x2f = cx + rBase * std::cos(a2), y2f = cy + rBase * std::sin(a2);
+            float x1b = cx + rBell * std::cos(a1), y1b = cy + rBell * std::sin(a1);
+            float x2b = cx + rBell * std::cos(a2), y2b = cy + rBell * std::sin(a2);
+
+            add3D(x1f, y1f, -12.0f, x2f, y2f, -12.0f); // Forward bulkhead ring
+            add3D(x1b, y1b, -15.0f, x2b, y2b, -15.0f); // Aft exhaust bell rim (z = -15.0 ft)
+            add3D(x1f, y1f, -12.0f, x1b, y1b, -15.0f); // Nozzle longitudinal rib
         }
-        add3D(19.5f * sX, -5.5f, -4.5f, 19.5f * sX, -5.5f, 4.5f);
-        add3D(19.5f * sX, -2.5f, -4.5f, 19.5f * sX, -2.5f, 4.5f);
     }
 
-    // E. Twin 3D Octagonal Engine Cowlings & Bells (Port x = -5.5 ft, Starboard x = +5.5 ft)
+    // E. Medium Bottom VTOL Thrusters on the Belly (y = +8.5 ft to +10.8 ft)
     for (float cx : {-5.5f, 5.5f}) {
-        const float rTop = 3.0f;
-        const float rBot = 3.6f;
+        const float cz = 0.0f;
+        const float rTop = 2.2f;
+        const float rBot = 2.8f;
         const int segs = 6;
         for (int i = 0; i < segs; ++i) {
             float a1 = (float)i * (6.2831853f / segs);
             float a2 = (float)(i + 1) * (6.2831853f / segs);
-            float x1t = cx + rTop * std::cos(a1), z1t = rTop * std::sin(a1);
-            float x2t = cx + rTop * std::cos(a2), z2t = rTop * std::sin(a2);
-            float x1b = cx + rBot * std::cos(a1), z1b = rBot * std::sin(a1);
-            float x2b = cx + rBot * std::cos(a2), z2b = rBot * std::sin(a2);
+            float x1t = cx + rTop * std::cos(a1), z1t = cz + rTop * std::sin(a1);
+            float x2t = cx + rTop * std::cos(a2), z2t = cz + rTop * std::sin(a2);
+            float x1b = cx + rBot * std::cos(a1), z1b = cz + rBot * std::sin(a1);
+            float x2b = cx + rBot * std::cos(a2), z2b = cz + rBot * std::sin(a2);
 
-            add3D(x1t, 0.0f, z1t, x2t, 0.0f, z2t); // Top engine ring
-            add3D(x1b, 5.0f, z1b, x2b, 5.0f, z2b); // Exhaust bell rim
-            add3D(x1t, 0.0f, z1t, x1b, 5.0f, z1b); // Bell vertical rib
+            add3D(x1t,  8.5f, z1t, x2t,  8.5f, z2t); // Belly mount ring
+            add3D(x1b, 10.8f, z1b, x2b, 10.8f, z2b); // Ventral VTOL bell rim
+            add3D(x1t,  8.5f, z1t, x1b, 10.8f, z1b); // Bell vertical rib
         }
     }
 
-    // F. 4-Corner Reinforced 3D Combat Landing Gear & Full-Length Twin Skids
+    // F. Low-Profile Ventral Landing Gear & Maglev Runner Skids (at y = +12.0 ft)
     for (float sX : {-1.0f, 1.0f}) {
-        float skidX = 18.0f * sX;
-        // Full-length 3D ground contact runner from z = -12 ft (aft) to z = +12 ft (fore)
-        add3D(skidX - 1.5f * sX, 12.0f, -12.0f, skidX - 1.5f * sX, 12.0f, 12.0f);
-        add3D(skidX + 1.5f * sX, 12.0f, -12.0f, skidX + 1.5f * sX, 12.0f, 12.0f);
-        add3D(skidX - 1.5f * sX, 12.0f, -12.0f, skidX + 1.5f * sX, 12.0f, -12.0f);
-        add3D(skidX - 1.5f * sX, 12.0f,  12.0f, skidX + 1.5f * sX, 12.0f,  12.0f);
-        // Upturned 3D skid bow (fore) & heel (aft)
-        add3D(skidX, 12.0f,  12.0f, skidX + 1.5f * sX, 9.5f,  15.0f);
-        add3D(skidX, 12.0f, -12.0f, skidX + 1.5f * sX, 9.5f, -15.0f);
-        // Lateral skid outrigger bars at z = -8 ft and z = +8 ft
-        for (float zLeg : {-8.0f, 8.0f}) {
-            add3D(11.0f * sX,  0.0f, zLeg, skidX, 12.0f, zLeg);
-            add3D(16.0f * sX, -4.0f, zLeg, skidX, 12.0f, zLeg);
-            add3D( 6.0f * sX,  0.0f, zLeg, skidX, 12.0f, zLeg);
-            add3D(13.0f * sX, 12.0f, zLeg, 23.0f * sX, 12.0f, zLeg);
+        float skidX = 15.5f * sX;
+        add3D(skidX - 1.2f * sX, 12.0f, -10.5f, skidX - 1.2f * sX, 12.0f,  10.5f);
+        add3D(skidX + 1.2f * sX, 12.0f, -10.5f, skidX + 1.2f * sX, 12.0f,  10.5f);
+        add3D(skidX - 1.2f * sX, 12.0f, -10.5f, skidX + 1.2f * sX, 12.0f, -10.5f);
+        add3D(skidX - 1.2f * sX, 12.0f,  10.5f, skidX + 1.2f * sX, 12.0f,  10.5f);
+        for (float zLeg : {-7.0f, 7.0f}) {
+            add3D(11.5f * sX,  8.5f, zLeg, skidX, 12.0f, zLeg);
+            add3D(14.0f * sX,  8.5f, zLeg, skidX, 12.0f, zLeg);
         }
     }
 }
@@ -334,6 +290,8 @@ void Battleship::reset(float startX, float startY, float startFuel, float startZ
     m_airBrakeDragMagnitude = 0.0f;
     m_hoverThrustersEnabled = false;
     m_hoverThrusterThrottle = 0.0f;
+    m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
+    m_lastMagDampAccel  = {0.0f, 0.0f, 0.0f};
     m_groundEffectMagnitude = 0.0f;
     m_forceVectors.clear();
 }
@@ -473,16 +431,30 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
             spawnThrusterParticles(dt);
             updateThrusterParticles(dt, terrain);
 
-            float leftThrust = appliedThrottleLeft * THRUST_PER_ENGINE;
-            float rightThrust = appliedThrottleRight * THRUST_PER_ENGINE;
-            float totalThrustAccel = leftThrust + rightThrust;
-            float ay = -totalThrustAccel + GRAVITY;
+            // Dual-trigger split:
+            // Left Trigger (appliedThrottleLeft) -> Medium bottom VTOL thrusters (vertical lift -Y)
+            // Right Trigger (appliedThrottleRight) -> Two large rear main thrusters (forward propulsion +Z)
+            float vtolThrustAccel = appliedThrottleLeft * (2.0f * THRUST_PER_ENGINE);
+            float rearThrustAccel = appliedThrottleRight * (2.4f * THRUST_PER_ENGINE);
+            float ay = -vtolThrustAccel + GRAVITY;
 
-            if (ay < -0.1f) {
+            if (ay < -0.1f || rearThrustAccel > 1.5f) {
                 m_state = BattleshipState::FLYING;
                 m_takeoffCooldown = 0.6f;
-                m_vy += ay * dt;
-                m_y += m_vy * dt;
+                if (ay < -0.1f) {
+                    m_vy += ay * dt;
+                    m_y += m_vy * dt;
+                } else {
+                    m_hoverThrustersEnabled = true;
+                }
+                if (rearThrustAccel > 0.1f) {
+                    Vec3 fwdDir = localToWorldDir({0.0f, 0.0f, 1.0f});
+                    m_vx += fwdDir.x * rearThrustAccel * dt;
+                    m_vy += fwdDir.y * rearThrustAccel * dt;
+                    m_vz += fwdDir.z * rearThrustAccel * dt;
+                    m_x += m_vx * dt;
+                    m_z += m_vz * dt;
+                }
             } else {
                 m_y = m_landedSurfaceY;
                 m_vx = 0.0f;
@@ -496,16 +468,14 @@ void Battleship::update(float dt, float throttleLeft, float throttleRight, float
 
                 // Record static equilibrium force vectors while resting on pad
                 m_forceVectors.push_back({m_x, m_y, m_z, 0.0f, GRAVITY, 0.0f, {195, 140, 255, 220}, "GRAV"});
-                if (leftThrust > 0.1f) {
-                    m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -leftThrust, 0.0f, {80, 255, 120, 255}, "L.THR"});
+                if (vtolThrustAccel > 0.1f) {
+                    m_forceVectors.push_back({m_x - 5.5f * FT2M, m_y + 8.5f * FT2M, m_z, 0.0f, -vtolThrustAccel * 0.5f, 0.0f, {80, 255, 120, 255}, "L.THR"});
+                    m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 8.5f * FT2M, m_z, 0.0f, -vtolThrustAccel * 0.5f, 0.0f, {80, 255, 120, 255}, "R.THR"});
                 }
-                if (rightThrust > 0.1f) {
-                    m_forceVectors.push_back({m_x + 5.5f * FT2M, m_y + 5.0f * FT2M, m_z, 0.0f, -rightThrust, 0.0f, {80, 255, 120, 255}, "R.THR"});
-                }
-                float padNormalPerSkid = std::max(0.0f, (GRAVITY - totalThrustAccel) * 0.5f);
+                float padNormalPerSkid = std::max(0.0f, (GRAVITY - vtolThrustAccel) * 0.5f);
                 if (padNormalPerSkid > 0.1f) {
-                    m_forceVectors.push_back({m_x - 18.0f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.L"});
-                    m_forceVectors.push_back({m_x + 18.0f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.R"});
+                    m_forceVectors.push_back({m_x - 15.5f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.L"});
+                    m_forceVectors.push_back({m_x + 15.5f * FT2M, m_y + 12.0f * FT2M, m_z, 0.0f, -padNormalPerSkid, 0.0f, {160, 230, 180, 220}, "PAD.R"});
                 }
                 return;
             }
@@ -574,8 +544,8 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     if (m_abortActive) {
         m_abortTimer -= dt;
         rawThrottleLeft = 1.0f;
-        rawThrottleRight = 1.0f;
-        // Right the battleship towards 0 roll & 0 pitch using 3D PD attitude control
+        rawThrottleRight = 0.0f;
+        // Right the Ranger towards 0 roll & 0 pitch using 3D PD attitude control
         float targetRollTorque  = -m_angle * 3.5f - m_angularVel * 2.2f;
         float targetPitchTorque = -m_pitch * 3.5f - m_pitchVel * 2.2f;
         appliedRotate = std::clamp(targetRollTorque, -1.0f, 1.0f);
@@ -622,17 +592,34 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     // Gravity acts at center of mass (m_x, m_y, m_z)
     m_forceVectors.push_back({m_x, m_y, m_z, 0.0f, GRAVITY, 0.0f, {195, 140, 255, 220}, "GRAV"});
 
-    // 1. Port & Starboard Main Thrusters mounted at local (-5.5 ft, +5.0 ft, 0) and (+5.5 ft, +5.0 ft, 0)
-    float diffThrust = appliedThrottleLeft - appliedThrottleRight;
+    // 1a. Medium Bottom VTOL Thrusters (Left Trigger / appliedThrottleLeft)
+    //     Mounted symmetrically on the ventral belly at (-5.5 ft, +8.5 ft, 0) and (+5.5 ft, +8.5 ft, 0),
+    //     pushing upward along local -Y so the Ranger lifts off without needing high wing speed.
+    float diffThrust = 0.0f;
     if (appliedThrottleLeft > 0.0f) {
-        applyForceAtLocalPoint3D({-5.5f * FT2M, 5.0f * FT2M, 0.0f},
+        applyForceAtLocalPoint3D({-5.5f * FT2M, 8.5f * FT2M, 0.0f},
                                  {0.0f, -appliedThrottleLeft * THRUST_PER_ENGINE, 0.0f},
                                  totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
                                  "L.THR", {80, 255, 120, 255});
+        applyForceAtLocalPoint3D({ 5.5f * FT2M, 8.5f * FT2M, 0.0f},
+                                 {0.0f, -appliedThrottleLeft * THRUST_PER_ENGINE, 0.0f},
+                                 totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                 (appliedThrottleRight > 0.0f) ? "L.THR" : "R.THR", {80, 255, 120, 255});
     }
+
+    // 1b. Two Large Rear Main Thrusters on the Back of the Ship (Right Trigger / appliedThrottleRight)
+    //     Mounted side-by-side on the aft bulkhead at (-4.8 ft, 0, -15.0 ft) and (+4.8 ft, 0, -15.0 ft),
+    //     pushing forward along the Ranger's nose (+Z).
+    //     When sliding in the Maglev ground cushion, magnetic flux channeling boosts forward propulsion by 25%.
     if (appliedThrottleRight > 0.0f) {
-        applyForceAtLocalPoint3D({5.5f * FT2M, 5.0f * FT2M, 0.0f},
-                                 {0.0f, -appliedThrottleRight * THRUST_PER_ENGINE, 0.0f},
+        float maglevSlideBoost = (m_hoverThrustersEnabled && m_hoverThrusterThrottle > 0.05f) ? 1.25f : 1.0f;
+        float rearThrustPerNozzle = appliedThrottleRight * (1.2f * THRUST_PER_ENGINE) * maglevSlideBoost;
+        applyForceAtLocalPoint3D({-4.8f * FT2M, 0.0f, -15.0f * FT2M},
+                                 {0.0f, 0.0f, rearThrustPerNozzle},
+                                 totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                 "R.THR", {80, 255, 120, 255});
+        applyForceAtLocalPoint3D({ 4.8f * FT2M, 0.0f, -15.0f * FT2M},
+                                 {0.0f, 0.0f, rearThrustPerNozzle},
                                  totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
                                  "R.THR", {80, 255, 120, 255});
     }
@@ -685,13 +672,88 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
         }
     }
 
-    // 2c. Yaw RCS Thrusters
+    // 2c. Rudder Yaw Thrusters (LB / RB)
     if (std::abs(appliedYaw) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        totalYawAccel += appliedYaw * 2.4f;
+        totalYawAccel += appliedYaw * 2.8f;
         sound.playRCS();
     }
 
-    // 3. Automatic 3D Ground Effect Hover Thrusters
+    // 3. Tucked-In Wing Aerodynamics: Standard Quadratic (v^2) Lift, Banked Turning & Glide
+    //    - Scales strictly with v^2 everywhere: minimal lift at low speeds (requiring bottom VTOL thrusters),
+    //      high L/D glide efficiency at speed, and high-G normal lift when banked + pitching up so the ship
+    //      turns on a dime energy-efficiently without burning fuel.
+    m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
+    {
+        Vec3 vel{m_vx, m_vy, m_vz};
+        float speedSq = vel.lengthSq();
+        if (speedSq > 0.1f && !m_airBrakesActive) {
+            float speed = std::sqrt(speedSq);
+            Vec3 vHat = vel / speed;
+            Vec3 shipDown  = localToWorldDir({0.0f, 1.0f, 0.0f}); // +Y ventral belly
+            Vec3 shipUp    = shipDown * -1.0f;                    // -Y dorsal wing lift normal
+            Vec3 shipFwd   = localToWorldDir({0.0f, 0.0f, 1.0f}); // +Z nose
+
+            float vFwd  = vel.dot(shipFwd);
+            float vDown = vel.dot(shipDown);
+            // Measure horizontal sideslip relative to the heading plane so banking + pitching
+            // does not induce artificial opposing sideslip force during banked turns
+            Vec3 horizRight{std::cos(m_yaw), 0.0f, -std::sin(m_yaw)};
+            float vSide = vel.dot(horizRight);
+
+            if (std::abs(vFwd) > 0.1f) {
+                // Quadratic wing lift: L = WING_LIFT_COEFF * v^2 * sin(2*alpha)
+                //                        = WING_LIFT_COEFF * 2 * (vDown + alpha0 * |vFwd|) * |vFwd|
+                // Strictly homogeneous of degree 2 in velocity (exact v^2 scaling at all speeds).
+                const float alpha0 = 0.055f; // Built-in wing camber incidence (~3.1 deg)
+                float bankedElevatorAoA = std::max(0.0f, -m_pitch) * std::abs(std::sin(m_angle)) * std::abs(vFwd);
+                float effVDown = std::max(vDown, bankedElevatorAoA) + alpha0 * std::abs(vFwd);
+                float liftMag = WING_LIFT_COEFF * 2.0f * effVDown * std::abs(vFwd);
+
+                // Resolve lift direction perpendicular to velocity vHat toward shipUp (-Y)
+                // so banked turns rotate the velocity vector without losing speed.
+                Vec3 liftDir = shipUp - vHat * shipUp.dot(vHat);
+                float liftDirLen = liftDir.length();
+                if (liftDirLen > 1e-4f) {
+                    liftDir = liftDir / liftDirLen;
+                } else {
+                    liftDir = shipUp;
+                }
+                Vec3 liftAccel = liftDir * liftMag;
+
+                // Canted twin dorsal tail fins: quadratic sideslip restoring force in high-speed flight
+                float highSpeedFlight = (m_hoverThrusterThrottle > 0.01f)
+                    ? 0.0f
+                    : std::clamp((speed - 12.0f) / 10.0f, 0.0f, 1.0f);
+                float levelFactor = std::max(0.0f, std::cos(m_angle)) * highSpeedFlight;
+                Vec3 sideDir = horizRight - vHat * horizRight.dot(vHat);
+                float sideDirLen = sideDir.length();
+                if (sideDirLen > 1e-4f) sideDir = sideDir / sideDirLen;
+                Vec3 sideAccel = sideDir * (-0.015f * levelFactor * vSide * std::abs(vFwd));
+
+                // Low parasitic + induced drag (quadratic in v) for long airplane glide range
+                float sinAlpha = std::clamp(vDown / speed, -0.8f, 0.8f);
+                float dragMag = (0.00012f + 0.0014f * sinAlpha * sinAlpha) * (vFwd * vFwd);
+                Vec3 aeroDrag = vHat * (-dragMag);
+
+                m_lastWingLiftAccel = liftAccel + sideAccel;
+                totalWorldA += m_lastWingLiftAccel + aeroDrag;
+
+                // Coordinated banked turn yaw rate + aerodynamic weathervaning in high-speed flight
+                if (highSpeedFlight > 0.0f) {
+                    float turnYawRate = (liftAccel.dot(horizRight)) / std::max(speed, 5.0f);
+                    totalYawAccel += ((turnYawRate - m_yawVel) * 4.5f + (vSide / (speed + 1.0f)) * 2.2f) * highSpeedFlight;
+                }
+                if (std::abs(appliedPitch) < 0.05f) {
+                    totalPitchAccel -= m_pitchVel * 0.65f;
+                }
+                if (std::abs(appliedRotate) < 0.05f) {
+                    totalRollAccel  -= m_angularVel * 0.65f;
+                }
+            }
+        }
+    }
+
+    // 4. Maglev Hover (Task 2.1) & Normal-Axis Magnetic Damping (Task 2.2)
     updateHoverThrusters(dt, appliedRotate, appliedPitch, diffThrust, terrain, sound,
                          totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel);
 
@@ -776,7 +838,7 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     struct NozzleInfo3D { Vec3 pos; float throttle; };
     NozzleInfo3D nozzles[2] = {
         { localToWorldPoint({-5.5f * FT2M, 5.0f * FT2M, 0.0f}), appliedThrottleLeft },
-        { localToWorldPoint({ 5.5f * FT2M, 5.0f * FT2M, 0.0f}), appliedThrottleRight }
+        { localToWorldPoint({ 5.5f * FT2M, 5.0f * FT2M, 0.0f}), appliedThrottleLeft }
     };
 
     Vec3 geAccel{0.0f, 0.0f, 0.0f};
@@ -915,6 +977,7 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
                                       const Terrain& terrain, SoundEngine& /*sound*/,
                                       Vec3& accumWorldA, float& accumRollAccel,
                                       float& accumPitchAccel, float& accumYawAccel) {
+    m_lastMagDampAccel = {0.0f, 0.0f, 0.0f};
     if (!m_hoverThrustersEnabled || (!m_unlimitedFuel && m_fuel <= 0.0f)) {
         m_hoverThrusterThrottle = 0.0f;
         return;
@@ -939,6 +1002,7 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
     }
 
     float clearance = minSurfY - (m_y + 12.0f * FT2M); // [m]
+    Vec3 surfNormal = terrain.getSurfaceNormalAt(m_x, m_z); // Points upward out of terrain (surfNormal.y < 0)
 
     // Local & forward 3D terrain slope for contour-following velocity tracking while skating in (X, Z)
     float surfLeft  = terrain.getSurfaceHeightAt(m_x - 15.0f * FT2M, m_z);
@@ -961,6 +1025,29 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
     float currentVy = m_vy + accumWorldA.y * dt;
     float relVy = currentVy - terrainVy;
 
+    // ── Task 2.2: Normal-Axis Eddy-Current Magnetic Damping ─────────────────
+    // Resistive force acts strictly along the ground normal (surfNormal) when approaching the terrain
+    // (v · n < 0), drastically slowing normal descent while leaving tangential velocity 100% untouched.
+    Vec3 vel3D{m_vx, currentVy, m_vz};
+    float vDotN = vel3D.dot(surfNormal); // < 0 when approaching ground surface
+    float normalApproachSpeed = std::max(-vDotN, relVy * (-surfNormal.y));
+    if (clearance < MAG_DAMP_MAX_ALT && normalApproachSpeed > 0.05f) {
+        float prox = std::clamp((MAG_DAMP_MAX_ALT - clearance) / MAG_DAMP_MAX_ALT, 0.0f, 1.0f);
+        float dampMag = std::min(14.5f, MAG_DAMP_COEFF * (0.35f + 0.65f * prox * prox) * normalApproachSpeed);
+        m_lastMagDampAccel = surfNormal * dampMag;
+
+        // In the outer magnetic damping envelope (above HOVER_MAX_ALT) or when diving from flight
+        // at horizontal speed into the Maglev transition, apply the normal-axis eddy-current brake directly.
+        float horizGlideSpeed = std::sqrt(m_vx * m_vx + m_vz * m_vz);
+        if (clearance >= HOVER_MAX_ALT) {
+            accumWorldA += m_lastMagDampAccel;
+        } else if (clearance > HOVER_TARGET_ALT + 1.0f && relVy > 1.5f && horizGlideSpeed > 12.0f) {
+            float glideBlend = std::clamp((horizGlideSpeed - 12.0f) / 15.0f, 0.0f, 1.0f);
+            accumWorldA += m_lastMagDampAccel * (0.50f * glideBlend);
+        }
+    }
+
+    // ── Task 2.1: Multi-Point Maglev Hover & Ground Sliding ─────────────────
     if (clearance < HOVER_MAX_ALT) {
         float altError = HOVER_TARGET_ALT - clearance;
 
@@ -978,7 +1065,17 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
         m_hoverThrusterThrottle = std::clamp(desiredUpAccel / HOVER_MAX_ACCEL, 0.0f, 1.0f);
         float hoverUpAccel = m_hoverThrusterThrottle * HOVER_MAX_ACCEL;
 
-        // Attitude stabilization in Roll and Pitch
+        // Downhill slope gravity projection & Maglev ground-sliding speed pickup:
+        // When sliding downhill or starting on a slope, normal magnetic repulsion projects along the
+        // downhill slope tangent so sliding across terrain builds high speed without retarding uphill momentum.
+        if (surfNormal.x * m_vx >= -0.05f) {
+            accumWorldA.x += surfNormal.x * hoverUpAccel * 0.35f;
+        }
+        if (surfNormal.z * m_vz >= -0.05f) {
+            accumWorldA.z += surfNormal.z * hoverUpAccel * 0.35f;
+        }
+
+        // Attitude stabilization & terrain slope contouring in Roll and Pitch
         float stabTorqueRoll = 0.0f;
         if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
             stabTorqueRoll = (-3.2f * m_angle - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
@@ -1029,11 +1126,11 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
 
     // 3D Test points on footpads, lower chassis, engine nozzles, and cabin top
     std::vector<Vec3> testPoints = {
-        {-18.0f * FT2M, 12.0f * FT2M,  0.0f}, { 18.0f * FT2M, 12.0f * FT2M,  0.0f}, // Center footpads
-        {-18.0f * FT2M, 12.0f * FT2M, -9.0f * FT2M}, { 18.0f * FT2M, 12.0f * FT2M,  9.0f * FT2M}, // 3D Fore/Aft skid tips
-        {-14.0f * FT2M, -4.0f * FT2M,  0.0f}, { 14.0f * FT2M, -4.0f * FT2M,  0.0f}, // Mid body
-        {-5.5f * FT2M,   5.0f * FT2M,  0.0f}, {  5.5f * FT2M,  5.0f * FT2M,  0.0f}, // Left & Right nozzles
-        { 0.0f * FT2M, -21.0f * FT2M,  0.0f}                                        // Cabin top
+        {-15.5f * FT2M, 12.0f * FT2M,  0.0f}, { 15.5f * FT2M, 12.0f * FT2M,  0.0f}, // Center footpads
+        {-15.5f * FT2M, 12.0f * FT2M, -9.0f * FT2M}, { 15.5f * FT2M, 12.0f * FT2M,  9.0f * FT2M}, // 3D Fore/Aft skid tips
+        {-14.0f * FT2M,  1.5f * FT2M,  0.0f}, { 14.0f * FT2M,  1.5f * FT2M,  0.0f}, // Mid body chines
+        {-5.5f * FT2M,   8.5f * FT2M,  0.0f}, {  5.5f * FT2M,  8.5f * FT2M,  0.0f}, // Bottom VTOL nozzles
+        { 0.0f * FT2M,  -7.2f * FT2M,  0.0f}                                        // Canopy top
     };
 
     bool anyCollision = false;
@@ -1060,22 +1157,37 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
     }
 
     if (anyCollision) {
-        // Evaluate touchdown safety (only lock into LANDED state if hover thrusters are OFF)
+        // Evaluate touchdown safety (lock into LANDED state if hover thrusters are OFF)
         if (!m_hoverThrustersEnabled && touchedPad && isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f) {
             triggerLanding(padMultiplier, padHitY, sound);
             return;
         }
 
-        // Calculate 3D impact velocity magnitude in [m/s]
-        float speed = std::sqrt(m_vx * m_vx + m_vy * m_vy + m_vz * m_vz);
+        // Decompose 3D velocity relative to the local terrain surface normal
+        Vec3 surfNormal = terrain.getSurfaceNormalAt(m_x, m_z);
+        Vec3 vel{m_vx, m_vy, m_vz};
+        float speed = vel.length();
+        float normalImpactSpeed = std::max(0.0f, -vel.dot(surfNormal));
+
+        // If Maglev is active and normal impact speed is gentle, glide tangentially along the slope without damage
+        if (m_hoverThrustersEnabled && normalImpactSpeed <= SAFE_MAX_VY && isSafeAngle()) {
+            Vec3 vTangential = vel - surfNormal * vel.dot(surfNormal);
+            m_vx = vTangential.x;
+            m_vy = std::min(0.0f, vTangential.y);
+            m_vz = vTangential.z;
+            m_y  = terrain.getSurfaceHeightAt(m_x, m_z) - 12.0f * FT2M - 0.5f;
+            return;
+        }
+
+        float effectiveImpactSpeed = m_hoverThrustersEnabled ? std::max(normalImpactSpeed, m_vy) : speed;
 
         // Damage is proportional to impact velocity
-        float damageInflicted = std::max(2.5f, speed * DAMAGE_PER_VELOCITY);
+        float damageInflicted = std::max(2.5f, effectiveImpactSpeed * DAMAGE_PER_VELOCITY);
         m_damage = std::min(100.0f, m_damage + damageInflicted);
 
         // Store impact event for controller vibration and UI alerts
         m_lastImpact.occurred = true;
-        m_lastImpact.speed = speed;
+        m_lastImpact.speed = effectiveImpactSpeed;
         m_lastImpact.damageInflicted = damageInflicted;
 
         // If total damage reaches 100%, vehicle breaks apart into 3D tumbling debris
@@ -1085,18 +1197,25 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
         }
 
         // Vehicle survives the impact!
-        float soundIntensity = std::clamp(speed / (45.0f * FT2M), 0.35f, 1.0f);
+        float soundIntensity = std::clamp(effectiveImpactSpeed / (45.0f * FT2M), 0.35f, 1.0f);
         sound.playImpact(soundIntensity);
         m_impactFlashTimer = 0.25f;
 
-        // 3D Rebound physics: bounce vehicle off terrain surface
-        if (m_vy > 0.0f) {
-            m_vy = -std::max(12.0f * FT2M, m_vy * 0.40f);
+        // 3D Rebound physics: preserve tangential slide when Maglev is active, or bounce off terrain
+        if (m_hoverThrustersEnabled && (m_vx * m_vx + m_vz * m_vz) > 25.0f) {
+            Vec3 vTangential = vel - surfNormal * vel.dot(surfNormal);
+            m_vx = vTangential.x * 0.90f;
+            m_vz = vTangential.z * 0.90f;
+            m_vy = -std::max(6.0f * FT2M, normalImpactSpeed * 0.30f);
         } else {
-            m_vy = -m_vy * 0.40f;
+            if (m_vy > 0.0f) {
+                m_vy = -std::max(12.0f * FT2M, m_vy * 0.40f);
+            } else {
+                m_vy = -m_vy * 0.40f;
+            }
+            m_vx = -m_vx * 0.35f;
+            m_vz = -m_vz * 0.35f;
         }
-        m_vx = -m_vx * 0.35f;
-        m_vz = -m_vz * 0.35f;
 
         // Angular perturbation from impact
         m_angularVel = -m_angularVel * 0.35f + ((m_vx >= 0.0f) ? 0.75f : -0.75f);
@@ -1128,7 +1247,7 @@ void Battleship::spawnThrusterParticles(float dt) {
     if (m_state == BattleshipState::CRASHED) return;
     if (!m_unlimitedFuel && m_fuel <= 0.0f) return;
 
-    auto emitFromNozzle = [&](float nozzleLocalX, float throttle) {
+    auto emitFromNozzle3D = [&](const Vec3& localNozzlePos, const Vec3& localExhaustDir, float throttle) {
         if (throttle < 0.02f) return;
         float spawnRate = (120.0f + 260.0f * throttle) * throttle;
         int numParticles = (int)(spawnRate * dt);
@@ -1136,19 +1255,19 @@ void Battleship::spawnThrusterParticles(float dt) {
             numParticles++;
         }
 
-        Vec3 exDir   = localToWorldDir({0.0f, 1.0f, 0.0f});
+        Vec3 exDir   = localToWorldDir(localExhaustDir).normalized();
         Vec3 perpX   = localToWorldDir({1.0f, 0.0f, 0.0f});
-        Vec3 perpZ   = localToWorldDir({0.0f, 0.0f, 1.0f});
-        Vec3 nozzleW = localToWorldPoint({nozzleLocalX, 5.0f * FT2M, 0.0f});
+        Vec3 perpOrtho = exDir.cross(perpX).normalized();
+        Vec3 nozzleW = localToWorldPoint(localNozzlePos);
 
         float mouthSpread = (0.7f + 0.3f * (1.0f - throttle)) * FT2M;
 
         for (int i = 0; i < numParticles; ++i) {
             if (m_particles.size() >= 1200) break;
             ThrusterParticle p;
-            float offX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
-            float offZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
-            Vec3 pos = nozzleW + perpX * offX + perpZ * offZ;
+            float off1 = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
+            float off2 = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * mouthSpread;
+            Vec3 pos = nozzleW + perpX * off1 + perpOrtho * off2;
             p.x = pos.x;
             p.y = pos.y;
             p.z = pos.z;
@@ -1157,9 +1276,9 @@ void Battleship::spawnThrusterParticles(float dt) {
             float speed = speedFt * FT2M;
 
             float maxHalfAngle = 0.065f - 0.035f * throttle;
-            float coneX = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
-            float coneZ = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
-            Vec3 dir = (exDir + perpX * std::sin(coneX) + perpZ * std::sin(coneZ)).normalized();
+            float cone1 = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
+            float cone2 = (((float)std::rand() / (float)RAND_MAX) - 0.5f) * (2.0f * maxHalfAngle);
+            Vec3 dir = (exDir + perpX * std::sin(cone1) + perpOrtho * std::sin(cone2)).normalized();
 
             p.vx = m_vx * 0.25f + dir.x * speed;
             p.vy = m_vy * 0.25f + dir.y * speed;
@@ -1184,8 +1303,16 @@ void Battleship::spawnThrusterParticles(float dt) {
         }
     };
 
-    emitFromNozzle(-5.5f * FT2M, m_throttleLeft);
-    emitFromNozzle( 5.5f * FT2M, m_throttleRight);
+    // Emit downward (+Y) exhaust particles from the medium bottom VTOL thrusters (Left Trigger)
+    if (m_throttleLeft > 0.02f) {
+        emitFromNozzle3D({-5.5f * FT2M, 10.8f * FT2M, 0.0f}, {0.0f, 1.0f, 0.0f}, m_throttleLeft);
+        emitFromNozzle3D({ 5.5f * FT2M, 10.8f * FT2M, 0.0f}, {0.0f, 1.0f, 0.0f}, m_throttleLeft);
+    }
+    // Emit aft (-Z) exhaust particles from the two large rear main thrusters (Right Trigger)
+    if (m_throttleRight > 0.02f) {
+        emitFromNozzle3D({-4.8f * FT2M, 2.8f * FT2M, -15.0f * FT2M}, {0.0f, 0.0f, -1.0f}, m_throttleRight);
+        emitFromNozzle3D({ 4.8f * FT2M, 2.8f * FT2M, -15.0f * FT2M}, {0.0f, 0.0f, -1.0f}, m_throttleRight);
+    }
 }
 
 void Battleship::spawnHoverParticles(float dt) {
@@ -1513,18 +1640,17 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         };
     };
 
-    // 3. Draw 3D Steady Nozzle Core Plume Cones
-    auto drawSteadyNozzleFlare3D = [&](float nozzleCenterX, float throttle) {
-        float flameLength = (4.0f * FT2M + throttle * 12.0f * FT2M) * SHIP_SCALE;
-        float flameWidth = 2.4f * FT2M * SHIP_SCALE;
-        float nozY = 12.0f * FT2M + (5.0f * FT2M - 12.0f * FT2M) * SHIP_SCALE;
-        float nozX = nozzleCenterX * SHIP_SCALE;
+    // 3. Draw 3D Steady Nozzle Core Plume Cones (Bottom VTOL + Rear Main Thrusters)
+    auto drawBottomVtolFlare3D = [&](float nozzleCenterX, float throttle) {
+        float flameLength = (3.5f * FT2M + throttle * 10.5f * FT2M) * SHIP_SCALE;
+        float flameWidth = 2.0f * FT2M * SHIP_SCALE;
+        Vec3 base = scaleLocalPt(nozzleCenterX, 10.8f * FT2M, 0.0f);
 
-        Vec3 tip = localToWorldPoint({nozX, nozY + flameLength, 0.0f});
-        Vec3 r1  = localToWorldPoint({nozX - flameWidth, nozY, 0.0f});
-        Vec3 r2  = localToWorldPoint({nozX + flameWidth, nozY, 0.0f});
-        Vec3 r3  = localToWorldPoint({nozX, nozY, -flameWidth});
-        Vec3 r4  = localToWorldPoint({nozX, nozY,  flameWidth});
+        Vec3 tip = localToWorldPoint({base.x, base.y + flameLength, base.z});
+        Vec3 r1  = localToWorldPoint({base.x - flameWidth, base.y, base.z});
+        Vec3 r2  = localToWorldPoint({base.x + flameWidth, base.y, base.z});
+        Vec3 r3  = localToWorldPoint({base.x, base.y, base.z - flameWidth});
+        Vec3 r4  = localToWorldPoint({base.x, base.y, base.z + flameWidth});
 
         SDL_Color flareColor = {255, 235, 160, 255};
         VectorRenderer::drawLineWorld3D(renderer, cam, r1, tip, flareColor, glow * 1.5f, 2);
@@ -1534,11 +1660,32 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         VectorRenderer::drawLineWorld3D(renderer, cam, r1, r2,  flareColor, glow * 1.2f, 1);
     };
 
+    auto drawRearMainFlare3D = [&](float nozzleCenterX, float throttle) {
+        float flameLength = (5.0f * FT2M + throttle * 15.0f * FT2M) * SHIP_SCALE;
+        float flameWidth = 3.0f * FT2M * SHIP_SCALE;
+        Vec3 base = scaleLocalPt(nozzleCenterX, 2.8f * FT2M, -15.0f * FT2M);
+
+        Vec3 tip = localToWorldPoint({base.x, base.y, base.z - flameLength});
+        Vec3 r1  = localToWorldPoint({base.x - flameWidth, base.y, base.z});
+        Vec3 r2  = localToWorldPoint({base.x + flameWidth, base.y, base.z});
+        Vec3 r3  = localToWorldPoint({base.x, base.y - flameWidth, base.z});
+        Vec3 r4  = localToWorldPoint({base.x, base.y + flameWidth, base.z});
+
+        SDL_Color flareColor = {255, 235, 160, 255};
+        VectorRenderer::drawLineWorld3D(renderer, cam, r1, tip, flareColor, glow * 1.6f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r2, tip, flareColor, glow * 1.6f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r3, tip, flareColor, glow * 1.6f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r4, tip, flareColor, glow * 1.6f, 2);
+        VectorRenderer::drawLineWorld3D(renderer, cam, r1, r2,  flareColor, glow * 1.2f, 1);
+    };
+
     if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        drawSteadyNozzleFlare3D(-5.5f * FT2M, m_throttleLeft);
+        drawBottomVtolFlare3D(-5.5f * FT2M, m_throttleLeft);
+        drawBottomVtolFlare3D( 5.5f * FT2M, m_throttleLeft);
     }
     if (m_throttleRight > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        drawSteadyNozzleFlare3D(5.5f * FT2M, m_throttleRight);
+        drawRearMainFlare3D(-4.8f * FT2M, m_throttleRight);
+        drawRearMainFlare3D( 4.8f * FT2M, m_throttleRight);
     }
 
     // 4. Draw 3D RCS Attitude Thruster Puffs (Roll & Pitch)

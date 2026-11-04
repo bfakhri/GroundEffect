@@ -136,25 +136,25 @@ bool testPropulsionAndDifferentialSteering() {
     CHECK_NEAR(ship.getAngularVel(), 0.0f, 1e-4f);
     CHECK(!ship.getParticles().empty()); // Exhaust particles spawned
 
-    // C. Left thruster only -> clockwise rotation (angle > 0) and rightward velocity (vx > 0)
+    // C. Left trigger only (medium bottom VTOL thrusters) -> vertical climb along -Y with zero rotation
     ship.reset(500.0f, 200.0f);
     ship.setVelocity(0.0f, 0.0f);
     for (int i = 0; i < 30; ++i) {
         ship.update(DT, 1.0f, 0.0f, 0.0f, false, false, terrain, sound);
     }
-    CHECK(ship.getAngularVel() > 0.5f);
-    CHECK(ship.getAngle() > 0.1f);
-    CHECK(ship.getVx() > 0.5f);
+    CHECK(ship.getVy() < -10.0f);
+    CHECK_NEAR(ship.getAngle(), 0.0f, 1e-4f);
+    CHECK_NEAR(ship.getVx(), 0.0f, 1e-4f);
 
-    // D. Right thruster only -> counter-clockwise rotation (angle < 0) and leftward velocity (vx < 0)
+    // D. Right trigger only (two large rear main thrusters) -> strong forward acceleration along +Z
     ship.reset(500.0f, 200.0f);
     ship.setVelocity(0.0f, 0.0f);
     for (int i = 0; i < 30; ++i) {
         ship.update(DT, 0.0f, 1.0f, 0.0f, false, false, terrain, sound);
     }
-    CHECK(ship.getAngularVel() < -0.5f);
-    CHECK(ship.getAngle() < -0.1f);
-    CHECK(ship.getVx() < -0.5f);
+    CHECK(ship.getVz() > 15.0f);
+    CHECK_NEAR(ship.getAngle(), 0.0f, 1e-4f);
+    CHECK_NEAR(ship.getVx(), 0.0f, 1e-4f);
 
     // E. RCS Attitude Thrusters physically impart both rotational torque AND linear force from hull mounts:
     //    - Port RCS at (-14 ft, -8 ft) firing for clockwise turn (rotateInput = +1.0) pushes hull rightward (+X)
@@ -424,20 +424,20 @@ bool testLandingReboundAndCrashSim() {
     ship.resetLanded(padX, padY - 12.0f * FT2M);
     CHECK(ship.getState() == BattleshipState::LANDED);
 
-    // Fire both engines for 0.65s to climb ~6m above pad
+    // Fire bottom VTOL engines for 0.65s to climb ~6m above pad
     for (int i = 0; i < 40; ++i) {
-        ship.update(DT, 0.65f, 0.65f, 0.0f, false, false, terrain, sound);
+        ship.update(DT, 0.65f, 0.0f, 0.0f, false, false, terrain, sound);
     }
     CHECK(ship.getState() == BattleshipState::FLYING);
     CHECK(ship.getY() < padY - 12.0f * FT2M - 2.0f);
 
-    // Use closed-loop throttle controller to bring vy to a gentle 3.5 m/s descent onto the pad
+    // Use closed-loop VTOL throttle controller to bring vy to a gentle 3.5 m/s descent onto the pad
     bool landedAgain = false;
     for (int i = 0; i < 600; ++i) {
         float targetVy = 3.5f; // Safe descent speed (< SAFE_MAX_VY = 6.096 m/s)
         float errVy = ship.getVy() - targetVy;
         float cmd = std::clamp(errVy * 0.25f, 0.0f, 1.0f);
-        ship.update(DT, cmd, cmd, 0.0f, false, false, terrain, sound);
+        ship.update(DT, cmd, 0.0f, 0.0f, false, false, terrain, sound);
         if (ship.getState() == BattleshipState::LANDED) {
             landedAgain = true;
             break;
@@ -449,7 +449,7 @@ bool testLandingReboundAndCrashSim() {
 
     // Verify we can take off a second time after landing (game does not stop)
     for (int i = 0; i < 30; ++i) {
-        ship.update(DT, 1.0f, 1.0f, 0.0f, false, false, terrain, sound);
+        ship.update(DT, 1.0f, 0.0f, 0.0f, false, false, terrain, sound);
     }
     CHECK(ship.getState() == BattleshipState::FLYING);
 
@@ -886,7 +886,7 @@ bool test3DFlightPitchHoverAndLandingSim() {
         bool landed3D = false;
         for (int i = 0; i < 120; ++i) {
             float cmd = std::clamp((ship.getVy() - 3.5f) * 0.25f, 0.0f, 1.0f);
-            ship.update(DT, cmd, cmd, 0.0f, false, false, terrain, sound);
+            ship.update(DT, cmd, 0.0f, 0.0f, false, false, terrain, sound);
             if (ship.getState() == BattleshipState::LANDED) {
                 landed3D = true;
                 break;
@@ -895,6 +895,106 @@ bool test3DFlightPitchHoverAndLandingSim() {
         CHECK(landed3D);
         CHECK(ship.getLastPadMultiplier() == pad0.multiplier);
         CHECK_NEAR(ship.getDamage(), 0.0f, 1e-4f);
+    }
+
+    // E. Task 1: Rocket-Airplane Hybrid — Quadratic (v^2) Wing Lift & Energy-Efficient Banked Turns
+    {
+        // E1. Low speed (5 m/s) produces minimal wing lift; doubling speed (20 -> 40 m/s) quadruples lift (v^2)
+        ship.reset(500.0f, 120.0f, 300.0f, 0.0f);
+        ship.setHoverThrustersEnabled(false);
+        ship.setVelocity(0.0f, 0.5f, 5.0f);
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+        float lift5 = ship.getWingLiftAccel().length();
+        CHECK(lift5 < 1.0f); // Minimal lift at low speed
+
+        ship.reset(500.0f, 120.0f, 300.0f, 0.0f);
+        ship.setHoverThrustersEnabled(false);
+        ship.setVelocity(0.0f, 2.0f, 20.0f);
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+        float lift20 = ship.getWingLiftAccel().length();
+
+        ship.reset(500.0f, 120.0f, 300.0f, 0.0f);
+        ship.setHoverThrustersEnabled(false);
+        ship.setVelocity(0.0f, 4.0f, 40.0f);
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+        float lift40 = ship.getWingLiftAccel().length();
+        CHECK_NEAR(lift40 / lift20, 4.0f, 0.15f); // Strict v^2 scaling!
+
+        // E2. High-speed glide range: unpowered forward glide loses far less altitude than ballistic drop
+        ship.reset(500.0f, 100.0f, 300.0f, 0.0f);
+        ship.setHoverThrustersEnabled(false);
+        ship.setPitch(-0.08f); // Slight nose-up glide attitude
+        ship.setVelocity(0.0f, 0.0f, 42.0f);
+        float startY = ship.getY();
+        for (int i = 0; i < 90; ++i) { // 1.5s unpowered glide
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+        }
+        float glideDrop = ship.getY() - startY;
+        float ballisticDrop = 0.5f * (28.0f * FT2M) * 1.5f * 1.5f; // ~9.6 m
+        CHECK(glideDrop < ballisticDrop * 0.35f);
+        CHECK(ship.getZ() > 55.0f);
+
+        // E3. Turning on a dime energy-efficiently at high speed by banking + pulling back (zero thruster fuel)
+        ship.reset(500.0f, 100.0f, 300.0f, 0.0f);
+        ship.setHoverThrustersEnabled(false);
+        ship.setAngle(0.75f);  // Bank right
+        ship.setPitch(-0.30f); // Pull nose up into the banked turn
+        ship.setVelocity(0.0f, 0.0f, 48.0f);
+        float fuelBefore = ship.getFuel();
+        for (int i = 0; i < 45; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+        }
+        CHECK_NEAR(ship.getFuel(), fuelBefore, 1e-4f); // Zero thruster fuel burned
+        CHECK(ship.getVx() > 14.0f); // Strong lateral velocity deflection from banked wing lift!
+    }
+
+    // F. Task 2.1 & 2.2: Maglev Ground Sliding & Normal-Axis Eddy-Current Magnetic Damping
+    {
+        // F1. Normal-axis magnetic damping acts strictly along the 3D terrain normal n_hat
+        float testX = 310.0f; // Sloped canyon terrain
+        float testZ = -25.0f;
+        Vec3 nHat = terrain.getSurfaceNormalAt(testX, testZ);
+        float surfY = terrain.getSurfaceHeightAt(testX, testZ);
+        ship.reset(testX, surfY - 12.0f * FT2M - 10.0f, 300.0f, testZ);
+        ship.setHoverThrustersEnabled(true);
+        ship.setVelocity(15.0f, 14.0f, 20.0f); // Approaching ground with tangential + normal speed
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+
+        Vec3 magDamp = ship.getMagneticDampingAccel();
+        CHECK(magDamp.length() > 8.0f);
+        // Cross product with terrain normal must be ~0 (strictly along normal n_hat!)
+        Vec3 crossN = magDamp.cross(nHat);
+        CHECK_NEAR(crossN.length(), 0.0f, 1e-3f);
+        // Opposes approach (points in +nHat direction)
+        CHECK(magDamp.dot(nHat) > 8.0f);
+
+        // F2. Shallow high-speed flight dive transitions smoothly into Maglev slide without striking ground
+        const auto& pad0 = terrain.getLandingPads()[0];
+        float flatX = 0.5f * (pad0.x1 + pad0.x2);
+        ship.reset(flatX, pad0.y - 12.0f * FT2M - 28.0f, 340.0f, -60.0f);
+        ship.setHoverThrustersEnabled(true);
+        ship.setVelocity(0.0f, 12.5f, 36.0f); // Fast shallow dive (12.5 m/s sink, 36 m/s forward)
+        for (int i = 0; i < 150; ++i) {
+            ship.update(DT, 0.0f, 1.0f, 0.0f, false, false, terrain, sound); // Rear thrusters on!
+            CHECK_NEAR(ship.getDamage(), 0.0f, 1e-4f);
+        }
+        // Normal damping arrested the dive and rear thrusters + Maglev boost accelerated forward speed!
+        CHECK(ship.getState() == BattleshipState::FLYING);
+        CHECK(ship.getVz() > 45.0f);
+
+        // F3. Overly steep & fast dive exceeds magnetic damping and strikes the ground
+        ship.reset(flatX, pad0.y - 12.0f * FT2M - 18.0f, 340.0f, 0.0f);
+        ship.setHoverThrustersEnabled(true);
+        ship.setVelocity(0.0f, 26.0f, 5.0f); // Steep 26 m/s downward dive from 18 m
+        bool struckGround = false;
+        for (int i = 0; i < 90; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
+            if (ship.getDamage() > 0.0f || ship.getState() == BattleshipState::CRASHED) {
+                struckGround = true;
+                break;
+            }
+        }
+        CHECK(struckGround);
     }
 
     return true;

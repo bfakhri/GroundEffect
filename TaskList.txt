@@ -1,5 +1,6 @@
-1. Make a fixed tick rate for the physics engine. Aim for 256 hz.
+1. I want the flying to feel like a cross between a rocket and airplane. I want the rawness of a rocket (having to harness the thrusters) and the flexibility of an airplane (being able to turn more efficiently and glide). It should not have very much lift from the wings, especially in low speeds, but also make it so that the wings give it much more range and ability to turn on a dime (energy efficiently) than if it were a rocket alone. To implement this, make the ship look like the ranger space ship in Interstellar the movie with two large main thrusters on the back of the ship and small, tucked in wings. Also add medium thrusters to the bottom that will help it get off the ground without needing to go super fast to generate lift from the wings (think a pseudo-vtol situation).
 
-2. Make the ship slightly larger.
+2. While this is partly a flying game, I want the terrain to be a critical part of the gameplay. A lot of the gameplay (say 50%) should be movement on the ground, so I want that to feel crisp. To do this, let's implement a few mechanics to help: 
+2.1) Implement a hover feature that allows sliding across the terrain to pick up speed. Let's call this maglev. 
+2.2) Implement a magnetic damping feature that will drastically slow down a ship when it approaches the ground. Implement the math for magnetic damping but instead of applying the resistive force in all directions, just apply in the direction of the ground normal. This will help ships make a smooth transition from high-speed flight to high speed gliding (maglev). The magnetic damping strength should not be so strong that it is impossible to strike the ground though, it will require some skill to transition from flight to sliding. 
 
-3. Add an FPS counter to the display, in the upper right corner, for both the physics engine and the graphics engine.

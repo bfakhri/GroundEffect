@@ -78,6 +78,8 @@ private:
     bool m_keyL = false;
     bool m_keyI = false;
     bool m_keyO = false;
+    bool m_keyZ = false;
+    bool m_keyX = false;
     bool m_keySpace = false;
     bool m_keyQ = false;
     bool m_keyE = false;

@@ -117,6 +117,8 @@ void InputManager::update() {
                         case SDLK_RIGHTBRACKET: m_keyL = true; break;
                         case SDLK_i:      m_keyI = true; break;
                         case SDLK_o:      m_keyO = true; break;
+                        case SDLK_z:      m_keyZ = true; break;
+                        case SDLK_x:      m_keyX = true; break;
                         case SDLK_SPACE:  m_keySpace = true; break;
                         case SDLK_q:      m_keyQ = true; break;
                         case SDLK_e:      m_keyE = true; break;
@@ -156,6 +158,8 @@ void InputManager::update() {
                     case SDLK_RIGHTBRACKET: m_keyL = false; break;
                     case SDLK_i:      m_keyI = false; break;
                     case SDLK_o:      m_keyO = false; break;
+                    case SDLK_z:      m_keyZ = false; break;
+                    case SDLK_x:      m_keyX = false; break;
                     case SDLK_SPACE:  m_keySpace = false; break;
                     case SDLK_q:      m_keyQ = false; break;
                     case SDLK_e:      m_keyE = false; break;
@@ -185,6 +189,7 @@ void InputManager::update() {
     float ctrlThrottleRight = 0.0f;
     float ctrlRotate = 0.0f;
     float ctrlPitch = 0.0f;
+    float ctrlYaw = 0.0f;
     float ctrlCamYaw = 0.0f;
     float ctrlCamPitch = 0.0f;
     bool btnAbort = false;
@@ -210,12 +215,8 @@ void InputManager::update() {
             ctrlThrottleRight = (float)(rtValue - TRIGGER_DEADZONE) / (32767.0f - TRIGGER_DEADZONE);
         }
 
-        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A) ||
-            SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER) ||
-            SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
-            btnBoost = true;
-        }
         if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_A)) {
+            btnBoost = true;
             btnRestart = true;
         }
 
@@ -246,12 +247,18 @@ void InputManager::update() {
         }
 
         // D-Pad override for crisp digital roll rotation
-        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
-            SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) {
+        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
             ctrlRotate = -1.0f;
-        } else if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
-                   SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+        } else if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
             ctrlRotate = 1.0f;
+        }
+
+        // Shoulder Bumpers (LB / RB) for rudder yaw control
+        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) {
+            ctrlYaw -= 1.0f;
+        }
+        if (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+            ctrlYaw += 1.0f;
         }
 
         btnAirBrakeHeld = (SDL_GameControllerGetButton(m_controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0);
@@ -291,6 +298,11 @@ void InputManager::update() {
     if (m_keyW) kbPitch += 1.0f;
     if (m_keyS) kbPitch -= 1.0f;
 
+    // Z / X controls 3D Rudder Yaw Left (-1) / Right (+1)
+    float kbYaw = 0.0f;
+    if (m_keyZ) kbYaw -= 1.0f;
+    if (m_keyX) kbYaw += 1.0f;
+
     // J / L and I / O control 3D Camera Orbit
     float kbCamYaw = 0.0f;
     if (m_keyJ) kbCamYaw -= 1.0f;
@@ -304,6 +316,7 @@ void InputManager::update() {
     m_state.throttle      = (m_state.throttleLeft + m_state.throttleRight) * 0.5f;
     m_state.rotateAxis    = std::clamp(ctrlRotate + kbRotate, -1.0f, 1.0f);
     m_state.pitchAxis     = std::clamp(ctrlPitch + kbPitch, -1.0f, 1.0f);
+    m_state.yawAxis       = std::clamp(ctrlYaw + kbYaw, -1.0f, 1.0f);
     m_state.camYawAxis    = std::clamp(ctrlCamYaw + kbCamYaw, -1.0f, 1.0f);
     m_state.camPitchAxis  = std::clamp(ctrlCamPitch + kbCamPitch, -1.0f, 1.0f);
     m_state.airBrakeHeld  = m_keyDown || btnAirBrakeHeld;

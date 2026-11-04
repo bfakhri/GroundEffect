@@ -108,7 +108,7 @@ public:
     float getAirBrakeDeploy() const { return m_airBrakeDeploy; }
     float getAirBrakeDragMagnitude() const { return m_airBrakeDragMagnitude; }
 
-    // Ground Effect Hover Thrusters
+    // Ground Effect Hover / Maglev System (Task 2.1) & Magnetic Damping (Task 2.2)
     bool isHoverThrustersEnabled() const { return m_hoverThrustersEnabled; }
     void setHoverThrustersEnabled(bool enabled) {
         m_hoverThrustersEnabled = enabled;
@@ -116,6 +116,10 @@ public:
     }
     void toggleHoverThrusters() { setHoverThrustersEnabled(!m_hoverThrustersEnabled); }
     float getHoverThrusterThrottle() const { return m_hoverThrusterThrottle; }
+    bool isMaglevEnabled() const { return m_hoverThrustersEnabled; }
+    void setMaglevEnabled(bool enabled) { setHoverThrustersEnabled(enabled); }
+    Vec3 getWingLiftAccel() const { return m_lastWingLiftAccel; }
+    Vec3 getMagneticDampingAccel() const { return m_lastMagDampAccel; }
 
     // Force Vector Visualization Overlay (ON by default)
     bool isForceVectorsVisible() const { return m_showForceVectors; }
@@ -155,6 +159,9 @@ public:
     static constexpr float HULL_INERTIA = 12.774f;    // [m^2] Specific rotational moment of inertia (r_g^2)
     static constexpr float RCS_THRUST_ACCEL = 35.0f;  // [m/s^2] Max lateral thrust acceleration from RCS thruster
     static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
+    static constexpr float WING_LIFT_COEFF = 0.042f;  // [1/m] Quadratic wing normal lift coefficient (L = k * v^2 * sin(2*alpha))
+    static constexpr float MAG_DAMP_MAX_ALT = 36.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
+    static constexpr float MAG_DAMP_COEFF = 2.40f;    // [1/s] Eddy-current normal magnetic damping coefficient
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;
@@ -214,9 +221,11 @@ private:
     float m_airBrakeDeploy = 0.0f;   // [0.0 - 1.0] Air brake flap deployment fraction
     float m_airBrakeDragMagnitude = 0.0f; // [0.0 - 1.0] Normalized drag force magnitude
 
-    // Ground Effect Hover Thrusters state
-    bool m_hoverThrustersEnabled = false;  // [flag] Automatic ground-effect hover thrusters enabled
-    float m_hoverThrusterThrottle = 0.0f;  // [0.0 - 1.0] Modulated hover thruster output fraction
+    // Ground Effect Hover Thrusters / Maglev & Magnetic Damping state
+    bool m_hoverThrustersEnabled = true;   // [flag] Maglev hover cushion enabled by default
+    float m_hoverThrusterThrottle = 0.0f;  // [0.0 - 1.0] Modulated maglev hover output fraction
+    Vec3 m_lastWingLiftAccel{0.0f, 0.0f, 0.0f}; // [m/s^2] Last tick aerodynamic wing lift acceleration
+    Vec3 m_lastMagDampAccel{0.0f, 0.0f, 0.0f};  // [m/s^2] Last tick normal-axis magnetic damping acceleration
 
     // Ground effect plume impingement
     float m_groundEffectMagnitude = 0.0f; // [0.0 - 1.0, dimensionless] Normalized GE force magnitude (last frame)
