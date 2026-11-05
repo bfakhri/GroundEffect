@@ -299,6 +299,9 @@ void Battleship::reset(float startX, float startY, float startFuel, float startZ
     m_targetRoll = m_angle;
     m_targetPitch = m_pitch;
     m_targetYaw = m_yaw;
+    m_targetRollRate = 0.0f;
+    m_targetPitchRate = 0.0f;
+    m_targetYawRate = 0.0f;
     m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
     m_lastMagDampAccel  = {0.0f, 0.0f, 0.0f};
     m_groundEffectMagnitude = 0.0f;
@@ -351,6 +354,9 @@ void Battleship::resetLanded(float startX, float startY, float startFuel, float 
     m_targetRoll = 0.0f;
     m_targetPitch = 0.0f;
     m_targetYaw = 0.0f;
+    m_targetRollRate = 0.0f;
+    m_targetPitchRate = 0.0f;
+    m_targetYawRate = 0.0f;
     m_hoverThrustersEnabled = true;
 }
 
@@ -637,91 +643,146 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
                                  "R.THR", {80, 255, 120, 255});
     }
 
-    // 2a. Port & Starboard Roll RCS / Air Mode
-    if (std::abs(appliedRotate) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        m_targetRoll = m_angle;
-        float rcsLocalForceX = appliedRotate * RCS_THRUST_ACCEL;
-        if (appliedRotate > 0.05f) {
-            applyForceAtLocalPoint3D({-14.0f * FT2M, -8.0f * FT2M, 0.0f},
-                                     {rcsLocalForceX, 0.0f, 0.0f},
-                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
-                                     "RCS.L", {255, 135, 70, 255});
-            m_rcsPuffLeft = 0.1f;
-        } else if (appliedRotate < -0.05f) {
-            applyForceAtLocalPoint3D({14.0f * FT2M, -8.0f * FT2M, 0.0f},
-                                     {rcsLocalForceX, 0.0f, 0.0f},
-                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
-                                     "RCS.R", {255, 135, 70, 255});
-            m_rcsPuffRight = 0.1f;
-        }
-        sound.playRCS();
-
-        if (!m_unlimitedFuel) {
-            float rcsFuel = std::abs(appliedRotate) * RCS_FUEL_BURN_RATE * dt;
-            m_fuel = std::max(0.0f, m_fuel - rcsFuel);
-        }
-    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        // Air Mode: maintain roll attitude
-        float rollDiff = wrapAnglePi(m_angle - m_targetRoll);
-        float rollCorrection = -rollDiff * 14.0f - m_angularVel * 6.5f;
-        totalRollAccel += std::clamp(rollCorrection, -25.0f, 25.0f);
-    }
-
-    // 2b. Fore & Aft Pitch RCS / Air Mode
-    if (std::abs(appliedPitch) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        m_targetPitch = m_pitch;
-        float rcsLocalForceZ = appliedPitch * RCS_THRUST_ACCEL;
-        if (appliedPitch > 0.05f) {
-            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, -11.0f * FT2M},
-                                     {0.0f, 0.0f, rcsLocalForceZ},
-                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
-                                     "RCS.A", {255, 165, 70, 255});
-            m_rcsPuffAft = 0.1f;
-        } else if (appliedPitch < -0.05f) {
-            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, 11.0f * FT2M},
-                                     {0.0f, 0.0f, rcsLocalForceZ},
-                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
-                                     "RCS.F", {255, 165, 70, 255});
-            m_rcsPuffFore = 0.1f;
-        }
-        sound.playRCS();
-
-        if (!m_unlimitedFuel) {
-            float rcsFuel = std::abs(appliedPitch) * RCS_FUEL_BURN_RATE * dt;
-            m_fuel = std::max(0.0f, m_fuel - rcsFuel);
-        }
-    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        // Air Mode: maintain pitch attitude
-        float pitchDiff = wrapAnglePi(m_pitch - m_targetPitch);
-        float pitchCorrection = -pitchDiff * 14.0f - m_pitchVel * 6.5f;
-        totalPitchAccel += std::clamp(pitchCorrection, -25.0f, 25.0f);
-    }
-
-    // 2c. Rudder Yaw Thrusters & Ground Turning / Air Mode
+    // 2. Air Mode Rate Controller & Attitude Hold
+    // Stick positions determine the target roll, pitch, and yaw rates.
+    // When sticks are neutral, target rates are 0 and the PD controller aims to maintain that (and attitude).
     float surfY_curr = terrain.getSurfaceHeightAt(m_x, m_z);
     float clearance_curr = surfY_curr - (m_y + 12.0f * FT2M);
     float groundFactor = std::clamp((HOVER_MAX_ALT - clearance_curr) / HOVER_MAX_ALT, 0.0f, 1.0f);
 
-    if (std::abs(appliedYaw) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        m_targetYaw = m_yaw;
-        // Make yaw (rudder) more effective for turning on the ground:
-        float yawAuthority = 8.0f + 14.0f * groundFactor;
-        totalYawAccel += appliedYaw * yawAuthority;
+    float maxYawRate = MAX_YAW_RATE + 3.0f * groundFactor; // Up to 6.5 rad/s on ground for effective ground turning
 
-        // When turning on the ground, actively guide momentum in the yaw turn direction:
-        if (groundFactor > 0.05f) {
+    // Stick positions determine target rates (with deadzone)
+    bool rollDeflected  = std::abs(appliedRotate) > 0.02f;
+    bool pitchDeflected = std::abs(appliedPitch) > 0.02f;
+    bool yawDeflected   = std::abs(appliedYaw) > 0.02f;
+
+    m_targetRollRate  = rollDeflected  ? appliedRotate * MAX_ROLL_RATE : 0.0f;
+    m_targetPitchRate = pitchDeflected ? appliedPitch * MAX_PITCH_RATE : 0.0f;
+    m_targetYawRate   = yawDeflected   ? appliedYaw * maxYawRate : 0.0f;
+
+    if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        // While stick is deflected, track attitude to current angle so stick release locks current attitude
+        if (rollDeflected) {
+            m_targetRoll = m_angle;
+        }
+        if (pitchDeflected) {
+            m_targetPitch = m_pitch;
+        }
+        if (yawDeflected) {
+            m_targetYaw = m_yaw;
+        }
+
+        // PD Controller for Roll:
+        // Proportional on rate error (aiming to maintain target rate, which is 0 at neutral)
+        // Derivative on rate / Proportional on angle error (locking attitude at neutral)
+        float rollRateErr  = m_targetRollRate - m_angularVel;
+        float rollAngleErr = rollDeflected ? 0.0f : wrapAnglePi(m_targetRoll - m_angle);
+        float rollCmd      = std::clamp(rollRateErr * 0.35f + rollAngleErr * 1.5f, -1.0f, 1.0f);
+
+        // Physical Roll RCS Thrusters via local hull mounts
+        float rcsRollForceX = rollCmd * RCS_THRUST_ACCEL;
+        if (rollCmd > 0.02f) {
+            applyForceAtLocalPoint3D({-14.0f * FT2M, -8.0f * FT2M, 0.0f},
+                                     {rcsRollForceX, 0.0f, 0.0f},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.L", {255, 135, 70, 255});
+            m_rcsPuffLeft = 0.1f;
+            sound.playRCS();
+        } else if (rollCmd < -0.02f) {
+            applyForceAtLocalPoint3D({14.0f * FT2M, -8.0f * FT2M, 0.0f},
+                                     {rcsRollForceX, 0.0f, 0.0f},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.R", {255, 135, 70, 255});
+            m_rcsPuffRight = 0.1f;
+            sound.playRCS();
+        }
+        // Direct FBW torque assist: critically damped (zeta ~ 1.2) for smooth, non-oscillatory rate damping
+        totalRollAccel += std::clamp(rollRateErr * 9.0f + rollAngleErr * 14.0f, -25.0f, 25.0f);
+
+        // PD Controller for Pitch:
+        float pitchRateErr  = m_targetPitchRate - m_pitchVel;
+        float pitchAngleErr = pitchDeflected ? 0.0f : wrapAnglePi(m_targetPitch - m_pitch);
+        float pitchCmd      = std::clamp(pitchRateErr * 0.35f + pitchAngleErr * 1.5f, -1.0f, 1.0f);
+
+        // Physical Pitch RCS Thrusters via fore/aft hull mounts
+        float rcsPitchForceZ = pitchCmd * RCS_THRUST_ACCEL;
+        if (pitchCmd > 0.02f) {
+            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, -11.0f * FT2M},
+                                     {0.0f, 0.0f, rcsPitchForceZ},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.A", {255, 165, 70, 255});
+            m_rcsPuffAft = 0.1f;
+            sound.playRCS();
+        } else if (pitchCmd < -0.02f) {
+            applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, 11.0f * FT2M},
+                                     {0.0f, 0.0f, rcsPitchForceZ},
+                                     totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel,
+                                     "RCS.F", {255, 165, 70, 255});
+            m_rcsPuffFore = 0.1f;
+            sound.playRCS();
+        }
+        totalPitchAccel += std::clamp(pitchRateErr * 9.0f + pitchAngleErr * 14.0f, -25.0f, 25.0f);
+
+        // PD Controller for Yaw:
+        float yawRateErr  = m_targetYawRate - m_yawVel;
+        float yawAngleErr = yawDeflected ? 0.0f : wrapAnglePi(m_targetYaw - m_yaw);
+        float yawAuthority = 8.0f + 14.0f * groundFactor;
+        float yawTorque = std::clamp(yawRateErr * 8.0f + yawAngleErr * 12.0f, -25.0f, 25.0f) * (yawAuthority / 8.0f);
+        totalYawAccel += yawTorque;
+        if (std::abs(yawTorque) > 1.5f) {
+            sound.playRCS();
+        }
+
+        // Active control RCS fuel burn
+        if (!m_unlimitedFuel) {
+            float activeMag = (std::abs(rollCmd) + std::abs(pitchCmd) + std::abs(yawTorque) / 25.0f) / 3.0f;
+            if (activeMag > 0.05f) {
+                float rcsFuel = activeMag * RCS_FUEL_BURN_RATE * dt;
+                m_fuel = std::max(0.0f, m_fuel - rcsFuel);
+            }
+        }
+
+        // When steering with yaw on the ground, actively guide momentum in the turn direction
+        if (groundFactor > 0.05f && std::abs(appliedYaw) > 0.05f) {
             Vec3 shipRight = localToWorldDir({1.0f, 0.0f, 0.0f});
             float horizSpeed = std::sqrt(m_vx * m_vx + m_vz * m_vz);
             float turnImpulse = appliedYaw * std::max(4.0f, horizSpeed) * 3.5f * groundFactor;
             totalWorldA.x += shipRight.x * turnImpulse;
             totalWorldA.z += shipRight.z * turnImpulse;
         }
-        sound.playRCS();
-    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        // Air Mode: maintain yaw heading
-        float yawDiff = wrapAnglePi(m_yaw - m_targetYaw);
-        float yawCorrection = -yawDiff * 12.0f - m_yawVel * 5.5f;
-        totalYawAccel += std::clamp(yawCorrection, -20.0f, 20.0f);
+    } else {
+        // Fallback open-loop RCS when Air Mode is disabled
+        if (std::abs(appliedRotate) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+            float rcsLocalForceX = appliedRotate * RCS_THRUST_ACCEL;
+            if (appliedRotate > 0.05f) {
+                applyForceAtLocalPoint3D({-14.0f * FT2M, -8.0f * FT2M, 0.0f}, {rcsLocalForceX, 0.0f, 0.0f},
+                                         totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel, "RCS.L", {255, 135, 70, 255});
+                m_rcsPuffLeft = 0.1f;
+            } else {
+                applyForceAtLocalPoint3D({ 14.0f * FT2M, -8.0f * FT2M, 0.0f}, {rcsLocalForceX, 0.0f, 0.0f},
+                                         totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel, "RCS.R", {255, 135, 70, 255});
+                m_rcsPuffRight = 0.1f;
+            }
+            sound.playRCS();
+        }
+        if (std::abs(appliedPitch) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+            float rcsLocalForceZ = appliedPitch * RCS_THRUST_ACCEL;
+            if (appliedPitch > 0.05f) {
+                applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, -11.0f * FT2M}, {0.0f, 0.0f, rcsLocalForceZ},
+                                         totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel, "RCS.A", {255, 165, 70, 255});
+                m_rcsPuffAft = 0.1f;
+            } else {
+                applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, 11.0f * FT2M}, {0.0f, 0.0f, rcsLocalForceZ},
+                                         totalWorldA, totalRollAccel, totalPitchAccel, totalYawAccel, "RCS.F", {255, 165, 70, 255});
+                m_rcsPuffFore = 0.1f;
+            }
+            sound.playRCS();
+        }
+        if (std::abs(appliedYaw) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+            totalYawAccel += appliedYaw * 8.0f;
+            sound.playRCS();
+        }
     }
 
 

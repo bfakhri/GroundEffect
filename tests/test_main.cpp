@@ -1038,30 +1038,60 @@ bool testFPVDroneAndNewFeatures() {
     Terrain terrain;
     SoundEngine sound;
 
-    // 2. Air Mode: attitude maintenance when sticks centered
+    // 2. Air Mode: stick deflection determines target rates; neutral sticks set target rate 0 & PD maintains it
     {
         Battleship ship;
         ship.reset(600.0f * FT2M, 150.0f, 300.0f, 0.0f);
         CHECK(ship.isAirModeActive());
 
-        // Pilot applies roll and pitch inputs
-        for (int i = 0; i < 20; ++i) {
+        // A. Stick deflection determines target rates
+        ship.update(DT, 0.0f, 0.0f, 0.5f, false, false, terrain, sound, false, -0.4f, 0.6f);
+        CHECK_NEAR(ship.getTargetRollRate(), 0.5f * Battleship::MAX_ROLL_RATE, 1e-4f);
+        CHECK_NEAR(ship.getTargetPitchRate(), -0.4f * Battleship::MAX_PITCH_RATE, 1e-4f);
+        CHECK_NEAR(ship.getTargetYawRate(), 0.6f * Battleship::MAX_YAW_RATE, 1e-4f);
+
+        // B. Rate tracking under sustained stick deflection
+        for (int i = 0; i < 25; ++i) {
             ship.update(DT, 0.0f, 0.0f, 0.5f, false, false, terrain, sound, false, 0.3f, 0.0f);
         }
+        CHECK_NEAR(ship.getTargetRollRate(), 0.5f * Battleship::MAX_ROLL_RATE, 1e-4f);
+        CHECK_NEAR(ship.getTargetPitchRate(), 0.3f * Battleship::MAX_PITCH_RATE, 1e-4f);
+        CHECK_NEAR(ship.getAngularVel(), 0.5f * Battleship::MAX_ROLL_RATE, 0.30f);
+        CHECK_NEAR(ship.getPitchVel(), 0.3f * Battleship::MAX_PITCH_RATE, 0.30f);
+
         float rollHeld = ship.getAngle();
         float pitchHeld = ship.getPitch();
         CHECK(std::abs(rollHeld) > 0.10f);
         CHECK(std::abs(pitchHeld) > 0.05f);
 
-        // Pilot releases sticks: controls centered (0.0f)
+        // C. Sticks returned to neutral: target rates become 0 and PD controller maintains 0 rate & held attitude
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false, 0.0f, 0.0f);
+        CHECK_NEAR(ship.getTargetRollRate(), 0.0f, 1e-5f);
+        CHECK_NEAR(ship.getTargetPitchRate(), 0.0f, 1e-5f);
+        CHECK_NEAR(ship.getTargetYawRate(), 0.0f, 1e-5f);
+
         for (int i = 0; i < 60; ++i) {
             ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false, 0.0f, 0.0f);
         }
-        // Attitude should remain locked near the held angles, angular rates damped to ~0
+        CHECK_NEAR(ship.getTargetRollRate(), 0.0f, 1e-5f);
+        CHECK_NEAR(ship.getTargetPitchRate(), 0.0f, 1e-5f);
+        CHECK_NEAR(ship.getTargetYawRate(), 0.0f, 1e-5f);
+        CHECK_NEAR(ship.getAngularVel(), 0.0f, 0.08f);
+        CHECK_NEAR(ship.getPitchVel(), 0.0f, 0.08f);
+        CHECK_NEAR(ship.getYawVel(), 0.0f, 0.08f);
         CHECK_NEAR(ship.getAngle(), rollHeld, 0.15f);
         CHECK_NEAR(ship.getPitch(), pitchHeld, 0.15f);
+
+        // D. External disturbance rejection while sticks neutral: PD controller actively drives rates back to 0
+        ship.setAngularVel(1.8f);
+        ship.setPitchVel(-1.5f);
+        for (int i = 0; i < 60; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false, 0.0f, 0.0f);
+        }
         CHECK_NEAR(ship.getAngularVel(), 0.0f, 0.10f);
         CHECK_NEAR(ship.getPitchVel(), 0.0f, 0.10f);
+        CHECK_NEAR(ship.getAngle(), rollHeld, 0.15f);
+        CHECK_NEAR(ship.getPitch(), pitchHeld, 0.15f);
     }
 
     // 3. Ground yaw effectiveness for turning

@@ -120,16 +120,26 @@ public:
     Vec3 getWingLiftAccel() const { return m_lastWingLiftAccel; }
     Vec3 getMagneticDampingAccel() const { return m_lastMagDampAccel; }
 
-    // Air Mode (Attitude Stabilization when sticks are released)
+    // Air Mode (Rate Control & Attitude Hold)
+    static constexpr float MAX_ROLL_RATE  = 5.0f; // [rad/s] Maximum roll rate for full stick input (~286 deg/s)
+    static constexpr float MAX_PITCH_RATE = 3.5f; // [rad/s] Maximum pitch rate for full stick input (~200 deg/s)
+    static constexpr float MAX_YAW_RATE   = 3.5f; // [rad/s] Maximum air yaw rate for full stick input (~200 deg/s)
+
     bool isAirModeActive() const { return m_airModeActive; }
     void setAirModeActive(bool active) { m_airModeActive = active; }
     float getTargetRoll() const { return m_targetRoll; }
     float getTargetPitch() const { return m_targetPitch; }
     float getTargetYaw() const { return m_targetYaw; }
+    float getTargetRollRate() const { return m_targetRollRate; }
+    float getTargetPitchRate() const { return m_targetPitchRate; }
+    float getTargetYawRate() const { return m_targetYawRate; }
     void setTargetAttitude(float roll, float pitch, float yaw) {
         m_targetRoll = roll;
         m_targetPitch = pitch;
         m_targetYaw = yaw;
+        m_targetRollRate = 0.0f;
+        m_targetPitchRate = 0.0f;
+        m_targetYawRate = 0.0f;
     }
 
     // Force Vector Visualization Overlay (ON by default)
@@ -226,11 +236,14 @@ private:
     bool m_abortActive = false;
     float m_abortTimer = 0.0f;       // [s] Abort burn timer
 
-    // Air Mode attitude tracking
+    // Air Mode attitude & rate tracking
     bool m_airModeActive = true;
     float m_targetRoll = 0.0f;
     float m_targetPitch = 0.0f;
     float m_targetYaw = 0.0f;
+    float m_targetRollRate = 0.0f;
+    float m_targetPitchRate = 0.0f;
+    float m_targetYawRate = 0.0f;
 
     // Air Brakes state
     bool m_airBrakesToggled = false; // [flag] Persistent air brake toggle state
