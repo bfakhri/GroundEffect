@@ -1140,6 +1140,14 @@ bool testFPVDroneAndNewFeatures() {
         ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound);
         Vec3 magDamp = ship.getMagneticDampingAccel();
         CHECK(magDamp.length() > 5.0f); // Strong magnetic damping active
+        bool hasMagDampVector = false;
+        for (const auto& fv : ship.getForceVectors()) {
+            if (fv.label == "MAG.DAMP") {
+                hasMagDampVector = true;
+                CHECK(fv.ay < -4.0f); // Upward deceleration opposing descent
+            }
+        }
+        CHECK(hasMagDampVector);
     }
 
     // 5. Enlarged Map dimensions and pads removed

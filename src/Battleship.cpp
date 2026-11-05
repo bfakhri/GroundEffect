@@ -1104,6 +1104,12 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
 
         // Apply normal-axis damping directly when approaching the terrain to cushion landing
         accumWorldA += m_lastMagDampAccel;
+
+        if (m_lastMagDampAccel.lengthSq() > 0.05f) {
+            m_forceVectors.push_back({m_x, m_y + 10.0f * FT2M, m_z,
+                                      m_lastMagDampAccel.x, m_lastMagDampAccel.y, m_lastMagDampAccel.z,
+                                      {0, 255, 200, 245}, "MAG.DAMP"});
+        }
     }
 
     // ── Multi-Point Maglev Hover & Ground Sliding ────────────────────────────
