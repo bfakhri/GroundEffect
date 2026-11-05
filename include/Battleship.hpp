@@ -188,7 +188,7 @@ public:
     static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
     static constexpr float WING_LIFT_COEFF = 0.0f;   // [1/m] Zero wing lift (pure rocket/drone flight per specification)
     static constexpr float MAG_DAMP_MAX_ALT = 45.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
-    static constexpr float MAG_DAMP_COEFF = 8.50f;    // [1/s] Increased eddy-current normal magnetic damping coefficient
+    static constexpr float MAG_DAMP_COEFF = 2.50f;    // [1/s] Increased eddy-current normal magnetic damping coefficient
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;

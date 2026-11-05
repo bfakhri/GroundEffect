@@ -1099,7 +1099,7 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
     if (clearance < MAG_DAMP_MAX_ALT && normalApproachSpeed > 0.05f) {
         float prox = std::clamp((MAG_DAMP_MAX_ALT - clearance) / MAG_DAMP_MAX_ALT, 0.0f, 1.0f);
         // Increased magnetic damping strength for landing
-        float dampMag = std::min(45.0f, MAG_DAMP_COEFF * (0.5f + 1.5f * prox * prox) * normalApproachSpeed);
+        float dampMag = std::min(450.0f, MAG_DAMP_COEFF * (0.5f + 1.5f * prox * prox) * normalApproachSpeed);
         m_lastMagDampAccel = surfNormal * dampMag;
 
         // Apply normal-axis damping directly when approaching the terrain to cushion landing
