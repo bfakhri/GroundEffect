@@ -140,7 +140,13 @@ public:
         m_targetRollRate = 0.0f;
         m_targetPitchRate = 0.0f;
         m_targetYawRate = 0.0f;
+        m_rollAttitudeLocked = true;
+        m_pitchAttitudeLocked = true;
+        m_yawAttitudeLocked = true;
     }
+    bool isRollAttitudeLocked() const { return m_rollAttitudeLocked; }
+    bool isPitchAttitudeLocked() const { return m_pitchAttitudeLocked; }
+    bool isYawAttitudeLocked() const { return m_yawAttitudeLocked; }
 
     // Force Vector Visualization Overlay (ON by default)
     bool isForceVectorsVisible() const { return m_showForceVectors; }
@@ -180,7 +186,7 @@ public:
     static constexpr float HULL_INERTIA = 12.774f;    // [m^2] Specific rotational moment of inertia (r_g^2)
     static constexpr float RCS_THRUST_ACCEL = 35.0f;  // [m/s^2] Max lateral thrust acceleration from RCS thruster
     static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
-    static constexpr float WING_LIFT_COEFF = 0.042f;  // [1/m] Quadratic wing normal lift coefficient (L = k * v^2 * sin(2*alpha))
+    static constexpr float WING_LIFT_COEFF = 0.052f;  // [1/m] Quadratic wing normal lift coefficient (L = k * v^2 * sin(2*alpha))
     static constexpr float MAG_DAMP_MAX_ALT = 45.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
     static constexpr float MAG_DAMP_COEFF = 8.50f;    // [1/s] Increased eddy-current normal magnetic damping coefficient
 
@@ -244,6 +250,9 @@ private:
     float m_targetRollRate = 0.0f;
     float m_targetPitchRate = 0.0f;
     float m_targetYawRate = 0.0f;
+    bool m_rollAttitudeLocked = true;
+    bool m_pitchAttitudeLocked = true;
+    bool m_yawAttitudeLocked = true;
 
     // Air Brakes state
     bool m_airBrakesToggled = false; // [flag] Persistent air brake toggle state

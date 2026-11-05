@@ -302,6 +302,9 @@ void Battleship::reset(float startX, float startY, float startFuel, float startZ
     m_targetRollRate = 0.0f;
     m_targetPitchRate = 0.0f;
     m_targetYawRate = 0.0f;
+    m_rollAttitudeLocked = true;
+    m_pitchAttitudeLocked = true;
+    m_yawAttitudeLocked = true;
     m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
     m_lastMagDampAccel  = {0.0f, 0.0f, 0.0f};
     m_groundEffectMagnitude = 0.0f;
@@ -357,6 +360,9 @@ void Battleship::resetLanded(float startX, float startY, float startFuel, float 
     m_targetRollRate = 0.0f;
     m_targetPitchRate = 0.0f;
     m_targetYawRate = 0.0f;
+    m_rollAttitudeLocked = true;
+    m_pitchAttitudeLocked = true;
+    m_yawAttitudeLocked = true;
     m_hoverThrustersEnabled = true;
 }
 
@@ -662,22 +668,44 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
     m_targetYawRate   = yawDeflected   ? appliedYaw * maxYawRate : 0.0f;
 
     if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        // While stick is deflected, track attitude to current angle so stick release locks current attitude
+        // Roll: while stick is active or ship is decelerating, track actual angle so stick release doesn't snap back
         if (rollDeflected) {
+            m_rollAttitudeLocked = false;
             m_targetRoll = m_angle;
+        } else if (!m_rollAttitudeLocked) {
+            m_targetRoll = m_angle;
+            if (std::abs(m_angularVel) < 0.04f) {
+                m_rollAttitudeLocked = true;
+            }
         }
+
+        // Pitch:
         if (pitchDeflected) {
+            m_pitchAttitudeLocked = false;
             m_targetPitch = m_pitch;
+        } else if (!m_pitchAttitudeLocked) {
+            m_targetPitch = m_pitch;
+            if (std::abs(m_pitchVel) < 0.04f) {
+                m_pitchAttitudeLocked = true;
+            }
         }
+
+        // Yaw:
         if (yawDeflected) {
+            m_yawAttitudeLocked = false;
             m_targetYaw = m_yaw;
+        } else if (!m_yawAttitudeLocked) {
+            m_targetYaw = m_yaw;
+            if (std::abs(m_yawVel) < 0.04f) {
+                m_yawAttitudeLocked = true;
+            }
         }
 
         // PD Controller for Roll:
-        // Proportional on rate error (aiming to maintain target rate, which is 0 at neutral)
-        // Derivative on rate / Proportional on angle error (locking attitude at neutral)
+        // When active or decelerating, angle error is 0 so the controller acts as pure smooth rate damper (zero snap-back).
+        // Once locked at rest, angle error holds attitude against disturbances.
         float rollRateErr  = m_targetRollRate - m_angularVel;
-        float rollAngleErr = rollDeflected ? 0.0f : wrapAnglePi(m_targetRoll - m_angle);
+        float rollAngleErr = m_rollAttitudeLocked ? wrapAnglePi(m_targetRoll - m_angle) : 0.0f;
         float rollCmd      = std::clamp(rollRateErr * 0.35f + rollAngleErr * 1.5f, -1.0f, 1.0f);
 
         // Physical Roll RCS Thrusters via local hull mounts
@@ -697,12 +725,12 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             m_rcsPuffRight = 0.1f;
             sound.playRCS();
         }
-        // Direct FBW torque assist: critically damped (zeta ~ 1.2) for smooth, non-oscillatory rate damping
-        totalRollAccel += std::clamp(rollRateErr * 9.0f + rollAngleErr * 14.0f, -25.0f, 25.0f);
+        // Direct FBW torque assist: smooth, critically damped rate damping with zero snap-back
+        totalRollAccel += std::clamp(rollRateErr * 12.0f + rollAngleErr * 14.0f, -28.0f, 28.0f);
 
         // PD Controller for Pitch:
         float pitchRateErr  = m_targetPitchRate - m_pitchVel;
-        float pitchAngleErr = pitchDeflected ? 0.0f : wrapAnglePi(m_targetPitch - m_pitch);
+        float pitchAngleErr = m_pitchAttitudeLocked ? wrapAnglePi(m_targetPitch - m_pitch) : 0.0f;
         float pitchCmd      = std::clamp(pitchRateErr * 0.35f + pitchAngleErr * 1.5f, -1.0f, 1.0f);
 
         // Physical Pitch RCS Thrusters via fore/aft hull mounts
@@ -722,13 +750,13 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             m_rcsPuffFore = 0.1f;
             sound.playRCS();
         }
-        totalPitchAccel += std::clamp(pitchRateErr * 9.0f + pitchAngleErr * 14.0f, -25.0f, 25.0f);
+        totalPitchAccel += std::clamp(pitchRateErr * 12.0f + pitchAngleErr * 14.0f, -28.0f, 28.0f);
 
         // PD Controller for Yaw:
         float yawRateErr  = m_targetYawRate - m_yawVel;
-        float yawAngleErr = yawDeflected ? 0.0f : wrapAnglePi(m_targetYaw - m_yaw);
+        float yawAngleErr = m_yawAttitudeLocked ? wrapAnglePi(m_targetYaw - m_yaw) : 0.0f;
         float yawAuthority = 8.0f + 14.0f * groundFactor;
-        float yawTorque = std::clamp(yawRateErr * 8.0f + yawAngleErr * 12.0f, -25.0f, 25.0f) * (yawAuthority / 8.0f);
+        float yawTorque = std::clamp(yawRateErr * 10.0f + yawAngleErr * 12.0f, -28.0f, 28.0f) * (yawAuthority / 8.0f);
         totalYawAccel += yawTorque;
         if (std::abs(yawTorque) > 1.5f) {
             sound.playRCS();
@@ -813,7 +841,7 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
                 // Quadratic wing lift: L = WING_LIFT_COEFF * v^2 * sin(2*alpha)
                 //                        = WING_LIFT_COEFF * 2 * (vDown + alpha0 * |vFwd|) * |vFwd|
                 // Strictly homogeneous of degree 2 in velocity (exact v^2 scaling at all speeds).
-                const float alpha0 = 0.055f; // Built-in wing camber incidence (~3.1 deg)
+                const float alpha0 = 0.075f; // Built-in wing camber incidence (~4.3 deg)
                 float bankedElevatorAoA = std::max(0.0f, -m_pitch) * std::abs(std::sin(m_angle)) * std::abs(vFwd);
                 float effVDown = std::max(vDown, bankedElevatorAoA) + alpha0 * std::abs(vFwd);
                 float liftMag = WING_LIFT_COEFF * 2.0f * effVDown * std::abs(vFwd);
@@ -846,6 +874,12 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
                 m_lastWingLiftAccel = liftAccel + sideAccel;
                 totalWorldA += m_lastWingLiftAccel + aeroDrag;
+
+                if (m_lastWingLiftAccel.lengthSq() > 0.01f) {
+                    m_forceVectors.push_back({m_x, m_y - 2.0f * FT2M, m_z,
+                                              m_lastWingLiftAccel.x, m_lastWingLiftAccel.y, m_lastWingLiftAccel.z,
+                                              {100, 220, 255, 240}, "LIFT"});
+                }
 
                 // Coordinated banked turn yaw rate + aerodynamic weathervaning in high-speed flight
                 if (highSpeedFlight > 0.0f) {
@@ -1176,15 +1210,20 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
             accumWorldA.z += surfNormal.z * hoverUpAccel * 0.35f;
         }
 
-        // Attitude stabilization aligning with Air Mode target attitude
+        // Attitude stabilization aligning with Air Mode target attitude (only active when locked at rest; pure rate damping while decelerating)
         float stabTorqueRoll = 0.0f;
-        if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
+        if (m_rollAttitudeLocked && std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
             float rDiff = wrapAnglePi(m_angle - m_targetRoll);
             stabTorqueRoll = (-3.2f * rDiff - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
+        } else if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
+            stabTorqueRoll = (-2.6f * m_angularVel) * m_hoverThrusterThrottle;
         }
-        if (std::abs(pitchInput) < 0.05f) {
+
+        if (m_pitchAttitudeLocked && std::abs(pitchInput) < 0.05f) {
             float pDiff = wrapAnglePi(m_pitch - m_targetPitch);
             accumPitchAccel += (-3.2f * pDiff - 2.6f * m_pitchVel) * m_hoverThrusterThrottle;
+        } else if (std::abs(pitchInput) < 0.05f) {
+            accumPitchAccel += (-2.6f * m_pitchVel) * m_hoverThrusterThrottle;
         }
 
         float cosA = std::cos(m_angle);

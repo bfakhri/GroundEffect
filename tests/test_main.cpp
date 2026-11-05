@@ -1092,6 +1092,42 @@ bool testFPVDroneAndNewFeatures() {
         CHECK_NEAR(ship.getPitchVel(), 0.0f, 0.10f);
         CHECK_NEAR(ship.getAngle(), rollHeld, 0.15f);
         CHECK_NEAR(ship.getPitch(), pitchHeld, 0.15f);
+
+        // E. Verification of zero snap-back when releasing sticks
+        // Spin roll up and then release: verify angular velocity damps to 0 monotonically without reversing/snapping back
+        for (int i = 0; i < 15; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.6f, false, false, terrain, sound, false, 0.0f, 0.0f);
+        }
+        CHECK(ship.getAngularVel() > 1.5f);
+        float prevRoll = ship.getAngle();
+        bool snappedBack = false;
+        for (int i = 0; i < 45; ++i) {
+            ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false, 0.0f, 0.0f);
+            float currRoll = ship.getAngle();
+            // If the ship rotated clockwise (positive), it must never reverse backwards (snap back)
+            if (currRoll < prevRoll - 0.005f) {
+                snappedBack = true;
+            }
+            prevRoll = currRoll;
+        }
+        CHECK(!snappedBack);
+        CHECK_NEAR(ship.getAngularVel(), 0.0f, 0.05f);
+
+        // F. Wing lift production and "LIFT" force vector overlay in HUD
+        ship.reset(600.0f * FT2M, 150.0f, 300.0f, 0.0f);
+        ship.setVelocity(0.0f, 0.0f, 30.0f); // Fast forward cruise
+        ship.update(DT, 0.0f, 0.0f, 0.0f, false, false, terrain, sound, false);
+        Vec3 lift = ship.getWingLiftAccel();
+        CHECK(lift.length() > 4.5f);
+        CHECK(lift.y < -3.0f); // Strong upward dorsal lift opposing gravity (-Y is up)
+        bool hasLiftVector = false;
+        for (const auto& fv : ship.getForceVectors()) {
+            if (fv.label == "LIFT") {
+                hasLiftVector = true;
+                CHECK(fv.ay < -3.0f);
+            }
+        }
+        CHECK(hasLiftVector);
     }
 
     // 3. Ground yaw effectiveness for turning
