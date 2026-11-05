@@ -23,6 +23,12 @@ static inline float applyThrustCurve(float t) {
     return std::pow(t, THRUST_EXPONENT);
 }
 
+static inline float wrapAnglePi(float a) {
+    while (a >  3.14159265f) a -= 6.2831853f;
+    while (a < -3.14159265f) a += 6.2831853f;
+    return a;
+}
+
 static void wrapAngleRad(float& a) {
     while (a > 3.14159265f) a -= 6.2831853f;
     while (a < -3.14159265f) a += 6.2831853f;
@@ -288,8 +294,11 @@ void Battleship::reset(float startX, float startY, float startFuel, float startZ
     m_airBrakesActive = false;
     m_airBrakeDeploy = 0.0f;
     m_airBrakeDragMagnitude = 0.0f;
-    m_hoverThrustersEnabled = false;
+    m_hoverThrustersEnabled = true;
     m_hoverThrusterThrottle = 0.0f;
+    m_targetRoll = m_angle;
+    m_targetPitch = m_pitch;
+    m_targetYaw = m_yaw;
     m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
     m_lastMagDampAccel  = {0.0f, 0.0f, 0.0f};
     m_groundEffectMagnitude = 0.0f;
@@ -339,6 +348,10 @@ void Battleship::resetLanded(float startX, float startY, float startFuel, float 
     m_pitchVel = 0.0f;
     m_yaw = 0.0f;
     m_yawVel = 0.0f;
+    m_targetRoll = 0.0f;
+    m_targetPitch = 0.0f;
+    m_targetYaw = 0.0f;
+    m_hoverThrustersEnabled = true;
 }
 
 bool Battleship::isSafeSpeed() const {
@@ -624,8 +637,9 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
                                  "R.THR", {80, 255, 120, 255});
     }
 
-    // 2. Port & Starboard Roll RCS Attitude Thrusters at (-14.0 ft, -8.0 ft, 0) and (+14.0 ft, -8.0 ft, 0)
+    // 2a. Port & Starboard Roll RCS / Air Mode
     if (std::abs(appliedRotate) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        m_targetRoll = m_angle;
         float rcsLocalForceX = appliedRotate * RCS_THRUST_ACCEL;
         if (appliedRotate > 0.05f) {
             applyForceAtLocalPoint3D({-14.0f * FT2M, -8.0f * FT2M, 0.0f},
@@ -646,10 +660,16 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             float rcsFuel = std::abs(appliedRotate) * RCS_FUEL_BURN_RATE * dt;
             m_fuel = std::max(0.0f, m_fuel - rcsFuel);
         }
+    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        // Air Mode: maintain roll attitude
+        float rollDiff = wrapAnglePi(m_angle - m_targetRoll);
+        float rollCorrection = -rollDiff * 14.0f - m_angularVel * 6.5f;
+        totalRollAccel += std::clamp(rollCorrection, -25.0f, 25.0f);
     }
 
-    // 2b. Fore & Aft Pitch RCS Attitude Thrusters mounted at (0, -8.0 ft, -11.0 ft) and (0, -8.0 ft, +11.0 ft)
+    // 2b. Fore & Aft Pitch RCS / Air Mode
     if (std::abs(appliedPitch) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        m_targetPitch = m_pitch;
         float rcsLocalForceZ = appliedPitch * RCS_THRUST_ACCEL;
         if (appliedPitch > 0.05f) {
             applyForceAtLocalPoint3D({0.0f, -8.0f * FT2M, -11.0f * FT2M},
@@ -670,13 +690,41 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             float rcsFuel = std::abs(appliedPitch) * RCS_FUEL_BURN_RATE * dt;
             m_fuel = std::max(0.0f, m_fuel - rcsFuel);
         }
+    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        // Air Mode: maintain pitch attitude
+        float pitchDiff = wrapAnglePi(m_pitch - m_targetPitch);
+        float pitchCorrection = -pitchDiff * 14.0f - m_pitchVel * 6.5f;
+        totalPitchAccel += std::clamp(pitchCorrection, -25.0f, 25.0f);
     }
 
-    // 2c. Rudder Yaw Thrusters (LB / RB)
+    // 2c. Rudder Yaw Thrusters & Ground Turning / Air Mode
+    float surfY_curr = terrain.getSurfaceHeightAt(m_x, m_z);
+    float clearance_curr = surfY_curr - (m_y + 12.0f * FT2M);
+    float groundFactor = std::clamp((HOVER_MAX_ALT - clearance_curr) / HOVER_MAX_ALT, 0.0f, 1.0f);
+
     if (std::abs(appliedYaw) > 0.05f && (m_unlimitedFuel || m_fuel > 0.0f)) {
-        totalYawAccel += appliedYaw * 2.8f;
+        m_targetYaw = m_yaw;
+        // Make yaw (rudder) more effective for turning on the ground:
+        float yawAuthority = 8.0f + 14.0f * groundFactor;
+        totalYawAccel += appliedYaw * yawAuthority;
+
+        // When turning on the ground, actively guide momentum in the yaw turn direction:
+        if (groundFactor > 0.05f) {
+            Vec3 shipRight = localToWorldDir({1.0f, 0.0f, 0.0f});
+            float horizSpeed = std::sqrt(m_vx * m_vx + m_vz * m_vz);
+            float turnImpulse = appliedYaw * std::max(4.0f, horizSpeed) * 3.5f * groundFactor;
+            totalWorldA.x += shipRight.x * turnImpulse;
+            totalWorldA.z += shipRight.z * turnImpulse;
+        }
         sound.playRCS();
+    } else if (m_airModeActive && (m_unlimitedFuel || m_fuel > 0.0f)) {
+        // Air Mode: maintain yaw heading
+        float yawDiff = wrapAnglePi(m_yaw - m_targetYaw);
+        float yawCorrection = -yawDiff * 12.0f - m_yawVel * 5.5f;
+        totalYawAccel += std::clamp(yawCorrection, -20.0f, 20.0f);
     }
+
+
 
     // 3. Tucked-In Wing Aerodynamics: Standard Quadratic (v^2) Lift, Banked Turning & Glide
     //    - Scales strictly with v^2 everywhere: minimal lift at low speeds (requiring bottom VTOL thrusters),
@@ -1033,21 +1081,15 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
     float normalApproachSpeed = std::max(-vDotN, relVy * (-surfNormal.y));
     if (clearance < MAG_DAMP_MAX_ALT && normalApproachSpeed > 0.05f) {
         float prox = std::clamp((MAG_DAMP_MAX_ALT - clearance) / MAG_DAMP_MAX_ALT, 0.0f, 1.0f);
-        float dampMag = std::min(14.5f, MAG_DAMP_COEFF * (0.35f + 0.65f * prox * prox) * normalApproachSpeed);
+        // Increased magnetic damping strength for landing
+        float dampMag = std::min(45.0f, MAG_DAMP_COEFF * (0.5f + 1.5f * prox * prox) * normalApproachSpeed);
         m_lastMagDampAccel = surfNormal * dampMag;
 
-        // In the outer magnetic damping envelope (above HOVER_MAX_ALT) or when diving from flight
-        // at horizontal speed into the Maglev transition, apply the normal-axis eddy-current brake directly.
-        float horizGlideSpeed = std::sqrt(m_vx * m_vx + m_vz * m_vz);
-        if (clearance >= HOVER_MAX_ALT) {
-            accumWorldA += m_lastMagDampAccel;
-        } else if (clearance > HOVER_TARGET_ALT + 1.0f && relVy > 1.5f && horizGlideSpeed > 12.0f) {
-            float glideBlend = std::clamp((horizGlideSpeed - 12.0f) / 15.0f, 0.0f, 1.0f);
-            accumWorldA += m_lastMagDampAccel * (0.50f * glideBlend);
-        }
+        // Apply normal-axis damping directly when approaching the terrain to cushion landing
+        accumWorldA += m_lastMagDampAccel;
     }
 
-    // ── Task 2.1: Multi-Point Maglev Hover & Ground Sliding ─────────────────
+    // ── Multi-Point Maglev Hover & Ground Sliding ────────────────────────────
     if (clearance < HOVER_MAX_ALT) {
         float altError = HOVER_TARGET_ALT - clearance;
 
@@ -1066,8 +1108,6 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
         float hoverUpAccel = m_hoverThrusterThrottle * HOVER_MAX_ACCEL;
 
         // Downhill slope gravity projection & Maglev ground-sliding speed pickup:
-        // When sliding downhill or starting on a slope, normal magnetic repulsion projects along the
-        // downhill slope tangent so sliding across terrain builds high speed without retarding uphill momentum.
         if (surfNormal.x * m_vx >= -0.05f) {
             accumWorldA.x += surfNormal.x * hoverUpAccel * 0.35f;
         }
@@ -1075,13 +1115,15 @@ void Battleship::updateHoverThrusters(float dt, float rotateInput, float pitchIn
             accumWorldA.z += surfNormal.z * hoverUpAccel * 0.35f;
         }
 
-        // Attitude stabilization & terrain slope contouring in Roll and Pitch
+        // Attitude stabilization aligning with Air Mode target attitude
         float stabTorqueRoll = 0.0f;
         if (std::abs(rotateInput) < 0.05f && std::abs(diffThrust) < 0.05f) {
-            stabTorqueRoll = (-3.2f * m_angle - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
+            float rDiff = wrapAnglePi(m_angle - m_targetRoll);
+            stabTorqueRoll = (-3.2f * rDiff - 2.6f * m_angularVel) * m_hoverThrusterThrottle;
         }
         if (std::abs(pitchInput) < 0.05f) {
-            accumPitchAccel += (-3.2f * m_pitch - 2.6f * m_pitchVel) * m_hoverThrusterThrottle;
+            float pDiff = wrapAnglePi(m_pitch - m_targetPitch);
+            accumPitchAccel += (-3.2f * pDiff - 2.6f * m_pitchVel) * m_hoverThrusterThrottle;
         }
 
         float cosA = std::cos(m_angle);
@@ -1134,9 +1176,6 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
     };
 
     bool anyCollision = false;
-    bool touchedPad = false;
-    int padMultiplier = 0;
-    float padHitY = 0.0f;
 
     for (size_t i = 1; i < testPoints.size(); ++i) {
         Vec3 w1 = localToWorldPoint(testPoints[i - 1]);
@@ -1147,35 +1186,39 @@ void Battleship::checkTerrainCollision(const Terrain& terrain, SoundEngine& soun
         float hY = 0.0f;
         if (terrain.checkCollision3D(w1, w2, isPad, mult, hY)) {
             anyCollision = true;
-            if (isPad) {
-                touchedPad = true;
-                padMultiplier = mult;
-                padHitY = hY;
-            }
             break;
         }
     }
 
     if (anyCollision) {
-        // Evaluate touchdown safety (lock into LANDED state if hover thrusters are OFF)
-        if (!m_hoverThrustersEnabled && touchedPad && isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f) {
-            triggerLanding(padMultiplier, padHitY, sound);
-            return;
-        }
-
         // Decompose 3D velocity relative to the local terrain surface normal
         Vec3 surfNormal = terrain.getSurfaceNormalAt(m_x, m_z);
         Vec3 vel{m_vx, m_vy, m_vz};
         float speed = vel.length();
         float normalImpactSpeed = std::max(0.0f, -vel.dot(surfNormal));
 
+        // If the vehicle is ascending away from the ground surface, do not arrest upward motion
+        if (normalImpactSpeed <= 0.05f && m_vy <= 0.0f) {
+            return;
+        }
+
+        // Evaluate touchdown safety anywhere on the terrain
+        if (isSafeSpeed() && isSafeAngle() && m_takeoffCooldown <= 0.0f && m_vy >= 0.0f && normalImpactSpeed <= SAFE_MAX_VY) {
+            float surfY = terrain.getSurfaceHeightAt(m_x, m_z);
+            triggerLanding(1, surfY, sound);
+            return;
+        }
+
         // If Maglev is active and normal impact speed is gentle, glide tangentially along the slope without damage
-        if (m_hoverThrustersEnabled && normalImpactSpeed <= SAFE_MAX_VY && isSafeAngle()) {
+        if (normalImpactSpeed <= SAFE_MAX_VY && isSafeAngle()) {
             Vec3 vTangential = vel - surfNormal * vel.dot(surfNormal);
             m_vx = vTangential.x;
-            m_vy = std::min(0.0f, vTangential.y);
+            if (m_vy > 0.0f) {
+                m_vy = std::min(0.0f, vTangential.y);
+            }
             m_vz = vTangential.z;
-            m_y  = terrain.getSurfaceHeightAt(m_x, m_z) - 12.0f * FT2M - 0.5f;
+            float maxPenetrationY = terrain.getSurfaceHeightAt(m_x, m_z) - 12.0f * FT2M - 0.5f;
+            m_y  = std::min(m_y, maxPenetrationY);
             return;
         }
 
@@ -1640,7 +1683,7 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         };
     };
 
-    // 3. Draw 3D Steady Nozzle Core Plume Cones (Bottom VTOL + Rear Main Thrusters)
+    // 3. Draw 3D Steady Nozzle Core Plume Cones with Supersonic Shock Diamonds
     auto drawBottomVtolFlare3D = [&](float nozzleCenterX, float throttle) {
         float flameLength = (3.5f * FT2M + throttle * 10.5f * FT2M) * SHIP_SCALE;
         float flameWidth = 2.0f * FT2M * SHIP_SCALE;
@@ -1658,6 +1701,38 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         VectorRenderer::drawLineWorld3D(renderer, cam, r3, tip, flareColor, glow * 1.5f, 2);
         VectorRenderer::drawLineWorld3D(renderer, cam, r4, tip, flareColor, glow * 1.5f, 2);
         VectorRenderer::drawLineWorld3D(renderer, cam, r1, r2,  flareColor, glow * 1.2f, 1);
+
+        // Shock Diamonds in Bottom VTOL Plume (along local +Y)
+        int numDiamonds = (int)(1.0f + throttle * 3.0f);
+        SDL_Color shockDiamondCol = {210, 245, 255, 255};
+        float diamondSpacing = flameLength / (float)(numDiamonds + 1);
+        for (int d = 1; d <= numDiamonds; ++d) {
+            float yCenter = base.y + (float)d * diamondSpacing;
+            float dLen = (0.7f + 0.5f * throttle) * FT2M * SHIP_SCALE;
+            float dWid = (0.55f + 0.4f * throttle) * FT2M * SHIP_SCALE * (1.0f - (float)d * 0.12f);
+
+            Vec3 lead  = localToWorldPoint({base.x, yCenter - dLen * 0.5f, base.z});
+            Vec3 trail = localToWorldPoint({base.x, yCenter + dLen * 0.5f, base.z});
+            Vec3 dw1   = localToWorldPoint({base.x - dWid, yCenter, base.z});
+            Vec3 dw2   = localToWorldPoint({base.x + dWid, yCenter, base.z});
+            Vec3 dw3   = localToWorldPoint({base.x, yCenter, base.z - dWid});
+            Vec3 dw4   = localToWorldPoint({base.x, yCenter, base.z + dWid});
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw1, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw3, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw2, dw4, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw4, dw1, shockDiamondCol, glow * 1.8f, 1);
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw1, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw4, shockDiamondCol, glow * 1.8f, 1);
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw1, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw4, shockDiamondCol, glow * 1.8f, 1);
+        }
     };
 
     auto drawRearMainFlare3D = [&](float nozzleCenterX, float throttle) {
@@ -1677,6 +1752,38 @@ void Battleship::render(SDL_Renderer* renderer, const Camera2D& cam, float glow)
         VectorRenderer::drawLineWorld3D(renderer, cam, r3, tip, flareColor, glow * 1.6f, 2);
         VectorRenderer::drawLineWorld3D(renderer, cam, r4, tip, flareColor, glow * 1.6f, 2);
         VectorRenderer::drawLineWorld3D(renderer, cam, r1, r2,  flareColor, glow * 1.2f, 1);
+
+        // Shock Diamonds in Rear Main Thruster Plume (along local -Z)
+        int numDiamonds = (int)(2.0f + throttle * 3.0f);
+        SDL_Color shockDiamondCol = {210, 245, 255, 255};
+        float diamondSpacing = flameLength / (float)(numDiamonds + 1);
+        for (int d = 1; d <= numDiamonds; ++d) {
+            float zCenter = base.z - (float)d * diamondSpacing;
+            float dLen = (0.9f + 0.6f * throttle) * FT2M * SHIP_SCALE;
+            float dWid = (0.7f + 0.5f * throttle) * FT2M * SHIP_SCALE * (1.0f - (float)d * 0.12f);
+
+            Vec3 lead  = localToWorldPoint({base.x, base.y, zCenter + dLen * 0.5f});
+            Vec3 trail = localToWorldPoint({base.x, base.y, zCenter - dLen * 0.5f});
+            Vec3 dw1   = localToWorldPoint({base.x - dWid, base.y, zCenter});
+            Vec3 dw2   = localToWorldPoint({base.x + dWid, base.y, zCenter});
+            Vec3 dw3   = localToWorldPoint({base.x, base.y - dWid, zCenter});
+            Vec3 dw4   = localToWorldPoint({base.x, base.y + dWid, zCenter});
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw1, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw3, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw2, dw4, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, dw4, dw1, shockDiamondCol, glow * 1.8f, 1);
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw1, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, lead, dw4, shockDiamondCol, glow * 1.8f, 1);
+
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw1, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw2, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw3, shockDiamondCol, glow * 1.8f, 1);
+            VectorRenderer::drawLineWorld3D(renderer, cam, trail, dw4, shockDiamondCol, glow * 1.8f, 1);
+        }
     };
 
     if (m_throttleLeft > 0.02f && (m_unlimitedFuel || m_fuel > 0.0f)) {

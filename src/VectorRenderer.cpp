@@ -160,3 +160,36 @@ void VectorRenderer::drawScanlines(SDL_Renderer* renderer, int width, int height
         SDL_RenderDrawLine(renderer, 0, y, width, y);
     }
 }
+
+void VectorRenderer::drawPointWorld3D(SDL_Renderer* renderer, const Camera2D& cam,
+                                      float wx, float wy, float wz,
+                                      SDL_Color color, float glow, int size) {
+    float sx = 0.0f, sy = 0.0f, depth = 0.0f;
+    if (!cam.worldToScreen3D(wx, wy, wz, sx, sy, &depth)) return;
+    if (sx < -10.0f || sx > (float)cam.screenWidth + 10.0f ||
+        sy < -10.0f || sy > (float)cam.screenHeight + 10.0f) return;
+
+    float farDist = cam.farPlane;
+    float alphaFactor = std::clamp(1.0f - (depth - cam.nearPlane) / farDist, 0.25f, 1.0f);
+    Uint8 a = (Uint8)(color.a * alphaFactor);
+
+    int isx = (int)std::round(sx);
+    int isy = (int)std::round(sy);
+
+    if (glow > 0.05f) {
+        Uint8 glowA = (Uint8)std::clamp((int)(a * 0.45f * glow), 0, 255);
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, glowA);
+        SDL_RenderDrawPoint(renderer, isx - 1, isy);
+        SDL_RenderDrawPoint(renderer, isx + 1, isy);
+        SDL_RenderDrawPoint(renderer, isx, isy - 1);
+        SDL_RenderDrawPoint(renderer, isx, isy + 1);
+    }
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, a);
+    SDL_RenderDrawPoint(renderer, isx, isy);
+    if (size > 1) {
+        SDL_RenderDrawPoint(renderer, isx + 1, isy);
+        SDL_RenderDrawPoint(renderer, isx, isy + 1);
+        SDL_RenderDrawPoint(renderer, isx + 1, isy + 1);
+    }
+}

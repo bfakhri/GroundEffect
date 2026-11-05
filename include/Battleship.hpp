@@ -108,18 +108,29 @@ public:
     float getAirBrakeDeploy() const { return m_airBrakeDeploy; }
     float getAirBrakeDragMagnitude() const { return m_airBrakeDragMagnitude; }
 
-    // Ground Effect Hover / Maglev System (Task 2.1) & Magnetic Damping (Task 2.2)
+    // Ground Effect Hover / Maglev System & Magnetic Damping (Always ON by default)
     bool isHoverThrustersEnabled() const { return m_hoverThrustersEnabled; }
     void setHoverThrustersEnabled(bool enabled) {
         m_hoverThrustersEnabled = enabled;
-        if (!enabled) m_hoverThrusterThrottle = 0.0f;
     }
-    void toggleHoverThrusters() { setHoverThrustersEnabled(!m_hoverThrustersEnabled); }
+    void toggleHoverThrusters() { m_hoverThrustersEnabled = true; }
     float getHoverThrusterThrottle() const { return m_hoverThrusterThrottle; }
     bool isMaglevEnabled() const { return m_hoverThrustersEnabled; }
-    void setMaglevEnabled(bool enabled) { setHoverThrustersEnabled(enabled); }
+    void setMaglevEnabled(bool enabled) { m_hoverThrustersEnabled = enabled; }
     Vec3 getWingLiftAccel() const { return m_lastWingLiftAccel; }
     Vec3 getMagneticDampingAccel() const { return m_lastMagDampAccel; }
+
+    // Air Mode (Attitude Stabilization when sticks are released)
+    bool isAirModeActive() const { return m_airModeActive; }
+    void setAirModeActive(bool active) { m_airModeActive = active; }
+    float getTargetRoll() const { return m_targetRoll; }
+    float getTargetPitch() const { return m_targetPitch; }
+    float getTargetYaw() const { return m_targetYaw; }
+    void setTargetAttitude(float roll, float pitch, float yaw) {
+        m_targetRoll = roll;
+        m_targetPitch = pitch;
+        m_targetYaw = yaw;
+    }
 
     // Force Vector Visualization Overlay (ON by default)
     bool isForceVectorsVisible() const { return m_showForceVectors; }
@@ -160,8 +171,8 @@ public:
     static constexpr float RCS_THRUST_ACCEL = 35.0f;  // [m/s^2] Max lateral thrust acceleration from RCS thruster
     static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
     static constexpr float WING_LIFT_COEFF = 0.042f;  // [1/m] Quadratic wing normal lift coefficient (L = k * v^2 * sin(2*alpha))
-    static constexpr float MAG_DAMP_MAX_ALT = 36.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
-    static constexpr float MAG_DAMP_COEFF = 2.40f;    // [1/s] Eddy-current normal magnetic damping coefficient
+    static constexpr float MAG_DAMP_MAX_ALT = 45.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
+    static constexpr float MAG_DAMP_COEFF = 8.50f;    // [1/s] Increased eddy-current normal magnetic damping coefficient
 
     bool isSafeSpeed() const;
     bool isSafeAngle() const;
@@ -214,6 +225,12 @@ private:
     float m_throttleRight = 0.0f;    // [0.0 - 1.0, dimensionless] Right engine throttle fraction
     bool m_abortActive = false;
     float m_abortTimer = 0.0f;       // [s] Abort burn timer
+
+    // Air Mode attitude tracking
+    bool m_airModeActive = true;
+    float m_targetRoll = 0.0f;
+    float m_targetPitch = 0.0f;
+    float m_targetYaw = 0.0f;
 
     // Air Brakes state
     bool m_airBrakesToggled = false; // [flag] Persistent air brake toggle state

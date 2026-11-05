@@ -60,12 +60,9 @@ bool Game::init(int width, int height) {
     m_sound.init();
     m_input.init();
 
-    const auto& pads = m_terrain.getLandingPads();
-    if (!pads.empty()) {
-        float startX = (pads[0].x1 + pads[0].x2) * 0.5f;
-        float startY = pads[0].y - 12.0f * FT2M;
-        m_battleship.resetLanded(startX, startY, 750.0f * LB2KG, 0.0f);
-    }
+    float startX = 600.0f * FT2M;
+    float startY = m_terrain.getSurfaceHeightAt(startX, 0.0f) - 12.0f * FT2M;
+    m_battleship.resetLanded(startX, startY, 750.0f * LB2KG, 0.0f);
 
     m_camera.screenWidth = m_screenWidth;
     m_camera.screenHeight = m_screenHeight;
@@ -89,8 +86,8 @@ bool Game::init(int width, int height) {
     m_running = true;
     m_lastBattleshipState = m_battleship.getState();
     m_crashVibrationTimer = 0.0f;
-    m_statusMessage = "READY FOR LAUNCH (3D VECTOR MODE)";
-    m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF  |  [W/S] PITCH  [A/D] ROLL";
+    m_statusMessage = "READY FOR LAUNCH (FPV DRONE CONTROLS)";
+    m_statusSubMessage = "APPLY THROTTLE TO FLY  |  [RS] PITCH & ROLL  [LS] YAW";
     m_messageTimer = 3.5f;
     m_scoredThisTouchdown = true;
 
@@ -120,21 +117,21 @@ void Game::initStars() {
     };
 
     // 1. Dense local 3D starfield around the terrain and low altitude
-    for (int i = 0; i < 600; ++i) {
+    for (int i = 0; i < 900; ++i) {
         Star s;
-        s.x = randFloat(-800.0f * FT2M, 5600.0f * FT2M);
-        s.y = randFloat(-2200.0f * FT2M, 2200.0f * FT2M);
-        s.z = randFloat(0.0f * FT2M, 2600.0f * FT2M);
+        s.x = randFloat(-2500.0f * FT2M, 17000.0f * FT2M);
+        s.y = randFloat(-3200.0f * FT2M, 3200.0f * FT2M);
+        s.z = randFloat(-4500.0f * FT2M, 4500.0f * FT2M);
         s.brightness = randFloat(0.25f, 1.0f);
         m_stars.push_back(s);
     }
 
     // 2. High-altitude deep space 3D starfield
-    for (int i = 0; i < 1400; ++i) {
+    for (int i = 0; i < 1800; ++i) {
         Star s;
-        s.x = randFloat(-1200.0f * FT2M, 6000.0f * FT2M);
-        s.y = randFloat(-200000.0f * FT2M, -2000.0f * FT2M);
-        s.z = randFloat(0.0f * FT2M, 4000.0f * FT2M);
+        s.x = randFloat(-4000.0f * FT2M, 19000.0f * FT2M);
+        s.y = randFloat(-250000.0f * FT2M, -2000.0f * FT2M);
+        s.z = randFloat(-6000.0f * FT2M, 6000.0f * FT2M);
         s.brightness = randFloat(0.25f, 1.0f);
         m_stars.push_back(s);
     }
@@ -298,14 +295,12 @@ void Game::handleInput() {
         m_messageTimer = 2.2f;
     }
 
-    // Toggle Ground Effect Hover Thrusters (H key / D-Pad Up)
+    // Ground Effect Hover Thrusters (Always ON)
     if (state.toggleHoverPressed) {
-        m_battleship.toggleHoverThrusters();
-        m_sound.playBeep(m_battleship.isHoverThrustersEnabled() ? 1250.0f : 700.0f, 0.08f);
-        m_statusMessage = m_battleship.isHoverThrustersEnabled() ? "GROUND EFFECT HOVER: ON" : "GROUND EFFECT HOVER: OFF";
-        m_statusSubMessage = m_battleship.isHoverThrustersEnabled()
-            ? "AUTO-MODULATING 3D THRUST TO HOVER & SKATE ACROSS TERRAIN"
-            : "PRESS [H] OR [DPAD UP] TO ENABLE HOVER THRUSTERS";
+        m_battleship.setHoverThrustersEnabled(true);
+        m_sound.playBeep(1250.0f, 0.08f);
+        m_statusMessage = "MAG-LEV HOVER: ALWAYS ON";
+        m_statusSubMessage = "AUTO-MODULATING 3D THRUST TO HOVER & SKATE ACROSS TERRAIN";
         m_messageTimer = 2.5f;
     }
 
@@ -322,12 +317,9 @@ void Game::handleInput() {
     if (state.nextSitePressed) {
         m_terrain.cycleSite();
         m_sound.playBeep(750.0f, 0.08f);
-        const auto& pads = m_terrain.getLandingPads();
-        if (!pads.empty()) {
-            float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
-            float padSurfaceY = pads[0].y - 12.0f * FT2M;
-            m_battleship.resetLanded(padCenterX, padSurfaceY, std::max(m_battleship.getFuel(), 600.0f * LB2KG), 0.0f);
-        }
+        float startX = 600.0f * FT2M;
+        float startY = m_terrain.getSurfaceHeightAt(startX, 0.0f) - 12.0f * FT2M;
+        m_battleship.resetLanded(startX, startY, std::max(m_battleship.getFuel(), 600.0f * LB2KG), 0.0f);
         float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
         Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
         m_camera.x = focusPos.x;
@@ -340,8 +332,8 @@ void Game::handleInput() {
         m_camSwivelPitch = 0.0f;
         m_camera.camYaw = 0.0f;
         m_camera.camPitch = 0.22f;
-        m_statusMessage = "MISSION: " + m_terrain.getSiteName();
-        m_statusSubMessage = "LANDED ON 3D PAD - READY FOR LAUNCH";
+        m_statusMessage = "LOCATION: " + m_terrain.getSiteName();
+        m_statusSubMessage = "READY FOR LAUNCH";
         m_messageTimer = 3.0f;
     }
 
@@ -350,12 +342,9 @@ void Game::handleInput() {
         if (m_battleship.getState() == BattleshipState::CRASHED ||
             (m_battleship.getState() == BattleshipState::LANDED && state.manualRestartPressed)) {
             float nextFuel = (m_battleship.getFuel() < 250.0f * LB2KG) ? 750.0f * LB2KG : m_battleship.getFuel();
-            const auto& pads = m_terrain.getLandingPads();
-            if (!pads.empty()) {
-                float padCenterX = (pads[0].x1 + pads[0].x2) * 0.5f;
-                float padSurfaceY = pads[0].y - 12.0f * FT2M;
-                m_battleship.resetLanded(padCenterX, padSurfaceY, nextFuel, 0.0f);
-            }
+            float startX = 600.0f * FT2M;
+            float startY = m_terrain.getSurfaceHeightAt(startX, 0.0f) - 12.0f * FT2M;
+            m_battleship.resetLanded(startX, startY, nextFuel, 0.0f);
             float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
             Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
             m_camera.x = focusPos.x;
@@ -369,7 +358,7 @@ void Game::handleInput() {
             m_camera.camYaw = 0.0f;
             m_camera.camPitch = 0.22f;
             m_statusMessage = "READY FOR LAUNCH";
-            m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF";
+            m_statusSubMessage = "APPLY THROTTLE TO FLY";
             m_messageTimer = 2.5f;
             m_sound.playBeep(1000.0f, 0.1f);
             m_scoredThisTouchdown = true;
@@ -468,13 +457,13 @@ void Game::update(float dt) {
 
     if (m_battleship.getState() == BattleshipState::LANDED) {
         if (!m_scoredThisTouchdown) {
-            int mult = m_battleship.getLastPadMultiplier();
-            int points = 50 * mult + (int)((m_battleship.getFuel() / LB2KG) * 0.25f) * mult;
+            int mult = std::max(1, m_battleship.getLastPadMultiplier());
+            int points = 50 * mult + (int)((m_battleship.getFuel() / LB2KG) * 0.25f);
             m_score += points;
             if (m_score > m_highScore) m_highScore = m_score;
 
             std::ostringstream ss;
-            ss << "PERFECT TOUCHDOWN! +" << points << " PTS (" << mult << "X PAD)";
+            ss << "TOUCHDOWN! +" << points << " PTS";
             m_statusMessage = ss.str();
             m_statusSubMessage = "APPLY THROTTLE TO TAKE OFF AGAIN";
             m_messageTimer = 4.0f;
@@ -883,30 +872,6 @@ void Game::renderNavRadar(float centerX, float centerY, float radius) {
     VectorRenderer::drawLineScreen(m_renderer, centerX - radius, centerY, centerX + radius, centerY, crossCol, m_crtGlow);
     VectorRenderer::drawLineScreen(m_renderer, centerX, centerY - radius, centerX, centerY + radius, crossCol, m_crtGlow);
 
-    // Nearest Landing Pad indicator (yellow box)
-    const auto& pads = m_terrain.getLandingPads();
-    if (!pads.empty()) {
-        float bestDistSq = 1e12f;
-        float bestDx = 0.0f, bestDz = 0.0f;
-        for (const auto& pad : pads) {
-            float px = 0.5f * (pad.x1 + pad.x2);
-            float pz = 0.5f * (pad.z1 + pad.z2);
-            float dx = px - m_battleship.getX();
-            float dz = pz - m_battleship.getZ();
-            float d2 = dx * dx + dz * dz;
-            if (d2 < bestDistSq) {
-                bestDistSq = d2;
-                bestDx = dx;
-                bestDz = dz;
-            }
-        }
-        float radarRange = 120.0f; // [m]
-        float padRx = std::clamp(bestDx / radarRange, -0.9f, 0.9f) * radius;
-        float padRy = std::clamp(-bestDz / radarRange, -0.9f, 0.9f) * radius; // +Z is Up on radar
-        VectorRenderer::drawRectScreen(m_renderer, centerX + padRx - 4.0f, centerY + padRy - 4.0f, 8.0f, 8.0f,
-                                       {255, 255, 100, 255}, m_crtGlow * 1.3f);
-    }
-
     // 3D Horizontal Velocity Vector (Vx, Vz)
     float vx = m_battleship.getVx();
     float vz = m_battleship.getVz();
@@ -923,7 +888,7 @@ void Game::renderNavRadar(float centerX, float centerY, float radius) {
     VectorRenderer::drawLineScreen(m_renderer, centerX + rollPipX - 3.0f, centerY + pitchPipY, centerX + rollPipX + 3.0f, centerY + pitchPipY, tCol, m_crtGlow, 2);
     VectorRenderer::drawLineScreen(m_renderer, centerX + rollPipX, centerY + pitchPipY - 3.0f, centerX + rollPipX, centerY + pitchPipY + 3.0f, tCol, m_crtGlow, 2);
 
-    VectorFont::drawTextCentered(m_renderer, "3D PAD RADAR", centerX, centerY + radius + 12.0f, 1.3f, ringCol, m_crtGlow);
+    VectorFont::drawTextCentered(m_renderer, "3D NAV RADAR", centerX, centerY + radius + 12.0f, 1.3f, ringCol, m_crtGlow);
 }
 
 void Game::renderFlightStatus() {
@@ -970,7 +935,7 @@ void Game::renderControllerGuide() {
                          m_crtGlow);
 
     std::string controls = m_throttleLockMode
-        ? "[LT/RT] LINKED  [LS/WASD] 3D PITCH&ROLL  [RS/JL] ORBIT  [TAB] CAM  [H] HOVER  [K] BRAKE"
-        : "[LT/RT] L/R.THR  [LS/WASD] 3D PITCH&ROLL  [RS/JL] ORBIT  [TAB] CAM  [H] HOVER  [K] BRAKE";
+        ? "[LT/RT] LINKED  [LS-X] YAW  [RS] PITCH/ROLL  [TAB] CAM  [MAG-LEV ON]  [K] BRAKE"
+        : "[LT] BOTTOM THRUST  [RT] MAIN THRUST  [LS-X] YAW  [RS] PITCH/ROLL  [TAB] CAM  [MAG-LEV ON]";
     VectorFont::drawText(m_renderer, controls, 25.0f, baseY, scale, guideColor, m_crtGlow);
 }

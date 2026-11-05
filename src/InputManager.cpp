@@ -220,30 +220,26 @@ void InputManager::update() {
             btnRestart = true;
         }
 
-        // Left Thumbstick X: Roll Rotation (-32768 to 32767)
+        // ── FPV Drone Controller Scheme ──────────────────────────────────────
+        // Left Thumbstick X: Yaw heading
         Sint16 lxValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_LEFTX);
         if (std::abs(lxValue) > STICK_DEADZONE) {
             float sign = (lxValue > 0) ? 1.0f : -1.0f;
-            ctrlRotate = sign * (float)(std::abs(lxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+            ctrlYaw = sign * (float)(std::abs(lxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
         }
 
-        // Left Thumbstick Y: 3D Pitch Forward/Backward (pushing stick up = -Y raw = pitch forward +Z)
-        Sint16 lyValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_LEFTY);
-        if (std::abs(lyValue) > STICK_DEADZONE) {
-            float sign = (lyValue < 0) ? 1.0f : -1.0f;
-            ctrlPitch = sign * (float)(std::abs(lyValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
-        }
-
-        // Right Thumbstick X/Y: 3D Camera Orbit Yaw & Elevation Pitch
+        // Right Thumbstick X: Roll attitude
         Sint16 rxValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTX);
         if (std::abs(rxValue) > STICK_DEADZONE) {
             float sign = (rxValue > 0) ? 1.0f : -1.0f;
-            ctrlCamYaw = sign * (float)(std::abs(rxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+            ctrlRotate = sign * (float)(std::abs(rxValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
         }
+
+        // Right Thumbstick Y: 3D Pitch (pushing stick forward/up = pitch forward +Z)
         Sint16 ryValue = SDL_GameControllerGetAxis(m_controller, SDL_CONTROLLER_AXIS_RIGHTY);
         if (std::abs(ryValue) > STICK_DEADZONE) {
             float sign = (ryValue < 0) ? 1.0f : -1.0f;
-            ctrlCamPitch = sign * (float)(std::abs(ryValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+            ctrlPitch = sign * (float)(std::abs(ryValue) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
         }
 
         // D-Pad override for crisp digital roll rotation

@@ -175,6 +175,10 @@ public:
         drawLineWorld3D(renderer, cam, Vec3{wx1, wy1, wz1}, Vec3{wx2, wy2, wz2}, color, glow, thickness);
     }
 
+    static void drawPointWorld3D(SDL_Renderer* renderer, const Camera2D& cam,
+                                 float wx, float wy, float wz,
+                                 SDL_Color color, float glow = 1.0f, int size = 1);
+
     static void drawPolylineWorld(SDL_Renderer* renderer, const Camera2D& cam,
                                   const std::vector<std::pair<float, float>>& points,
                                   SDL_Color color, float glow = 1.0f, bool closed = false); // points in [m]

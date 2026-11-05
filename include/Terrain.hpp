@@ -89,7 +89,7 @@ private:
     std::vector<TerrainSegment> m_segments;          // [m] Centerline terrain segments
     std::vector<LandingPad> m_pads;                  // [m] 3D Landing pad targets
 
-    float m_worldWidth = 1463.04f;   // [m] Terrain world width: 1463.04 m (4800.0 ft)
-    float m_worldHeight = 670.56f;   // [m] Terrain world height: 670.56 m (2200.0 ft)
-    float m_worldDepth = 731.52f;    // [m] Terrain world depth: 731.52 m (2400.0 ft, z in [-365.76, +365.76])
+    float m_worldWidth = 4389.12f;   // [m] Terrain world width: 4389.12 m (14400.0 ft)
+    float m_worldHeight = 853.44f;   // [m] Terrain world height: 853.44 m (2800.0 ft)
+    float m_worldDepth = 2194.56f;   // [m] Terrain world depth: 2194.56 m (7200.0 ft, z in [-1097.28, +1097.28])
 };

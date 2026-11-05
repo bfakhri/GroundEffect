@@ -42,7 +42,7 @@ void Terrain::loadSite(MissionSite site) {
     m_vertices.clear();
     m_pads.clear();
     m_segments.clear();
-    m_worldDepth = 2400.0f * FT2M; // [m] 731.52 m total depth (-365.76 m to +365.76 m)
+    m_worldDepth = 7200.0f * FT2M; // [m] 2194.56 m total depth (-1097.28 m to +1097.28 m)
 
     switch (site) {
         case MissionSite::TRANQUILITY_BASE:
@@ -67,158 +67,98 @@ void Terrain::loadSite(MissionSite site) {
 
 void Terrain::generateTranquilityBase() {
     m_siteName = "TRANQUILITY BASE";
-    m_worldWidth = 4800.0f * FT2M;  // [m] 1463.04 m (converted from 4800.0 ft)
-    m_worldHeight = 2200.0f * FT2M; // [m] 670.56 m (converted from 2200.0 ft)
+    m_worldWidth = 14400.0f * FT2M; // [m] 4389.12 m (14400.0 ft)
+    m_worldHeight = 2800.0f * FT2M; // [m] 853.44 m (2800.0 ft)
 
-    // Base ground level around y = 1700 ft (518.16 m)
     m_vertices = {
-        {0.0f * FT2M, 1600.0f * FT2M}, {300.0f * FT2M, 1550.0f * FT2M}, {500.0f * FT2M, 1680.0f * FT2M}, {700.0f * FT2M, 1720.0f * FT2M},
-        // 2X Pad (Wide, safe, x: 243.84 m to 350.52 m)
-        {800.0f * FT2M, 1720.0f * FT2M}, {1150.0f * FT2M, 1720.0f * FT2M},
-        {1250.0f * FT2M, 1620.0f * FT2M}, {1450.0f * FT2M, 1420.0f * FT2M}, {1600.0f * FT2M, 1480.0f * FT2M},
-        // 3X Pad (Medium, x: 518.16 m to 594.36 m)
-        {1700.0f * FT2M, 1530.0f * FT2M}, {1950.0f * FT2M, 1530.0f * FT2M},
-        {2100.0f * FT2M, 1680.0f * FT2M}, {2300.0f * FT2M, 1820.0f * FT2M}, {2450.0f * FT2M, 1920.0f * FT2M},
-        // 5X Pad (Very narrow in deep chasm, x: 762.00 m to 798.58 m)
-        {2500.0f * FT2M, 1920.0f * FT2M}, {2620.0f * FT2M, 1920.0f * FT2M},
-        {2750.0f * FT2M, 1780.0f * FT2M}, {2900.0f * FT2M, 1650.0f * FT2M}, {3100.0f * FT2M, 1450.0f * FT2M}, {3300.0f * FT2M, 1380.0f * FT2M},
-        // 4X Pad (Narrow peak ledge, x: 1030.22 m to 1075.94 m)
-        {3380.0f * FT2M, 1380.0f * FT2M}, {3530.0f * FT2M, 1380.0f * FT2M},
-        {3700.0f * FT2M, 1520.0f * FT2M}, {3950.0f * FT2M, 1680.0f * FT2M}, {4200.0f * FT2M, 1720.0f * FT2M},
-        // 2X Pad (Far eastern plain, x: 1310.64 m to 1402.08 m)
-        {4300.0f * FT2M, 1720.0f * FT2M}, {4600.0f * FT2M, 1720.0f * FT2M},
-        {4800.0f * FT2M, 1650.0f * FT2M}
+        {0.0f * FT2M, 1600.0f * FT2M},     {400.0f * FT2M, 1550.0f * FT2M},
+        {800.0f * FT2M, 1680.0f * FT2M},    {1200.0f * FT2M, 1720.0f * FT2M},
+        {1600.0f * FT2M, 1680.0f * FT2M},   {2000.0f * FT2M, 1620.0f * FT2M},
+        {2500.0f * FT2M, 1420.0f * FT2M},   {3000.0f * FT2M, 1480.0f * FT2M},
+        {3500.0f * FT2M, 1530.0f * FT2M},   {4000.0f * FT2M, 1650.0f * FT2M},
+        {4600.0f * FT2M, 1780.0f * FT2M},   {5200.0f * FT2M, 1850.0f * FT2M},
+        {5800.0f * FT2M, 1920.0f * FT2M},   {6400.0f * FT2M, 1880.0f * FT2M},
+        {7000.0f * FT2M, 1760.0f * FT2M},   {7600.0f * FT2M, 1600.0f * FT2M},
+        {8200.0f * FT2M, 1440.0f * FT2M},   {8800.0f * FT2M, 1380.0f * FT2M},
+        {9400.0f * FT2M, 1450.0f * FT2M},   {10000.0f * FT2M, 1560.0f * FT2M},
+        {10700.0f * FT2M, 1680.0f * FT2M},  {11400.0f * FT2M, 1760.0f * FT2M},
+        {12100.0f * FT2M, 1720.0f * FT2M},  {12800.0f * FT2M, 1640.0f * FT2M},
+        {13600.0f * FT2M, 1580.0f * FT2M},  {14400.0f * FT2M, 1650.0f * FT2M}
     };
-
-    m_pads = {
-        {800.0f * FT2M, 1150.0f * FT2M, 1720.0f * FT2M, 2, "2X", -120.0f * FT2M, 120.0f * FT2M},
-        {1700.0f * FT2M, 1950.0f * FT2M, 1530.0f * FT2M, 3, "3X", -100.0f * FT2M, 100.0f * FT2M},
-        {2500.0f * FT2M, 2620.0f * FT2M, 1920.0f * FT2M, 5, "5X",  -75.0f * FT2M,  75.0f * FT2M},
-        {3380.0f * FT2M, 3530.0f * FT2M, 1380.0f * FT2M, 4, "4X",  -85.0f * FT2M,  85.0f * FT2M},
-        {4300.0f * FT2M, 4600.0f * FT2M, 1720.0f * FT2M, 2, "2X", -120.0f * FT2M, 120.0f * FT2M}
-    };
+    m_pads.clear();
 }
 
 void Terrain::generateTychoCrater() {
     m_siteName = "TYCHO CRATER";
-    m_worldWidth = 4800.0f * FT2M;  // [m] 1463.04 m (converted from 4800.0 ft)
-    m_worldHeight = 2400.0f * FT2M; // [m] 731.52 m (converted from 2400.0 ft)
+    m_worldWidth = 14400.0f * FT2M; // [m] 4389.12 m
+    m_worldHeight = 2800.0f * FT2M; // [m] 853.44 m
 
     m_vertices = {
-        {0.0f * FT2M, 1400.0f * FT2M}, {350.0f * FT2M, 1300.0f * FT2M}, {600.0f * FT2M, 1200.0f * FT2M}, {850.0f * FT2M, 1120.0f * FT2M},
-        // 4X Rim ledge
-        {920.0f * FT2M, 1120.0f * FT2M}, {1080.0f * FT2M, 1120.0f * FT2M},
-        {1200.0f * FT2M, 1350.0f * FT2M}, {1450.0f * FT2M, 1650.0f * FT2M}, {1700.0f * FT2M, 1980.0f * FT2M}, {1900.0f * FT2M, 2150.0f * FT2M},
-        // 3X Crater floor West
-        {2000.0f * FT2M, 2150.0f * FT2M}, {2250.0f * FT2M, 2150.0f * FT2M},
-        {2350.0f * FT2M, 2020.0f * FT2M}, {2420.0f * FT2M, 1900.0f * FT2M},
-        // 5X Central peak pinnacle
-        {2460.0f * FT2M, 1900.0f * FT2M}, {2560.0f * FT2M, 1900.0f * FT2M},
-        {2600.0f * FT2M, 2020.0f * FT2M}, {2700.0f * FT2M, 2150.0f * FT2M},
-        // 2X Crater floor East
-        {2800.0f * FT2M, 2150.0f * FT2M}, {3150.0f * FT2M, 2150.0f * FT2M},
-        {3400.0f * FT2M, 1850.0f * FT2M}, {3650.0f * FT2M, 1550.0f * FT2M}, {3900.0f * FT2M, 1300.0f * FT2M}, {4100.0f * FT2M, 1220.0f * FT2M},
-        // 3X High eastern ledge
-        {4180.0f * FT2M, 1220.0f * FT2M}, {4400.0f * FT2M, 1220.0f * FT2M},
-        {4600.0f * FT2M, 1380.0f * FT2M}, {4800.0f * FT2M, 1450.0f * FT2M}
+        {0.0f * FT2M, 1400.0f * FT2M},     {600.0f * FT2M, 1320.0f * FT2M},
+        {1200.0f * FT2M, 1200.0f * FT2M},   {1800.0f * FT2M, 1100.0f * FT2M},
+        {2400.0f * FT2M, 1120.0f * FT2M},   {3000.0f * FT2M, 1350.0f * FT2M},
+        {3800.0f * FT2M, 1680.0f * FT2M},   {4600.0f * FT2M, 1980.0f * FT2M},
+        {5400.0f * FT2M, 2150.0f * FT2M},   {6000.0f * FT2M, 2180.0f * FT2M},
+        {6600.0f * FT2M, 2020.0f * FT2M},   {7200.0f * FT2M, 1850.0f * FT2M}, // Central peak
+        {7800.0f * FT2M, 2040.0f * FT2M},   {8400.0f * FT2M, 2180.0f * FT2M},
+        {9200.0f * FT2M, 2150.0f * FT2M},   {10000.0f * FT2M, 1850.0f * FT2M},
+        {10800.0f * FT2M, 1550.0f * FT2M},  {11600.0f * FT2M, 1280.0f * FT2M},
+        {12400.0f * FT2M, 1180.0f * FT2M},  {13200.0f * FT2M, 1280.0f * FT2M},
+        {13800.0f * FT2M, 1380.0f * FT2M},  {14400.0f * FT2M, 1450.0f * FT2M}
     };
-
-    m_pads = {
-        {920.0f * FT2M, 1080.0f * FT2M, 1120.0f * FT2M, 4, "4X",  -90.0f * FT2M,  90.0f * FT2M},
-        {2000.0f * FT2M, 2250.0f * FT2M, 2150.0f * FT2M, 3, "3X", -105.0f * FT2M, 105.0f * FT2M},
-        {2460.0f * FT2M, 2560.0f * FT2M, 1900.0f * FT2M, 5, "5X",  -70.0f * FT2M,  70.0f * FT2M},
-        {2800.0f * FT2M, 3150.0f * FT2M, 2150.0f * FT2M, 2, "2X", -120.0f * FT2M, 120.0f * FT2M},
-        {4180.0f * FT2M, 4400.0f * FT2M, 1220.0f * FT2M, 3, "3X", -100.0f * FT2M, 100.0f * FT2M}
-    };
+    m_pads.clear();
 }
 
 void Terrain::generateOceanOfStorms() {
     m_siteName = "OCEAN OF STORMS";
-    m_worldWidth = 4800.0f * FT2M;  // [m] 1463.04 m (converted from 4800.0 ft)
-    m_worldHeight = 2200.0f * FT2M; // [m] 670.56 m (converted from 2200.0 ft)
+    m_worldWidth = 14400.0f * FT2M; // [m] 4389.12 m
+    m_worldHeight = 2800.0f * FT2M; // [m] 853.44 m
 
     m_vertices = {
-        {0.0f * FT2M, 1680.0f * FT2M}, {250.0f * FT2M, 1720.0f * FT2M}, {450.0f * FT2M, 1680.0f * FT2M},
-        // 2X Pad
-        {500.0f * FT2M, 1680.0f * FT2M}, {800.0f * FT2M, 1680.0f * FT2M},
-        {950.0f * FT2M, 1520.0f * FT2M}, {1150.0f * FT2M, 1380.0f * FT2M}, {1300.0f * FT2M, 1420.0f * FT2M}, {1500.0f * FT2M, 1580.0f * FT2M},
-        // 3X Pad
-        {1600.0f * FT2M, 1620.0f * FT2M}, {1820.0f * FT2M, 1620.0f * FT2M},
-        {1950.0f * FT2M, 1750.0f * FT2M}, {2100.0f * FT2M, 1920.0f * FT2M}, {2250.0f * FT2M, 1920.0f * FT2M},
-        // 5X Ravine bottom
-        {2290.0f * FT2M, 1920.0f * FT2M}, {2390.0f * FT2M, 1920.0f * FT2M},
-        {2500.0f * FT2M, 1750.0f * FT2M}, {2700.0f * FT2M, 1550.0f * FT2M}, {2900.0f * FT2M, 1460.0f * FT2M},
-        // 4X Pad
-        {2980.0f * FT2M, 1460.0f * FT2M}, {3140.0f * FT2M, 1460.0f * FT2M},
-        {3300.0f * FT2M, 1600.0f * FT2M}, {3550.0f * FT2M, 1750.0f * FT2M}, {3750.0f * FT2M, 1780.0f * FT2M},
-        // 3X Pad
-        {3850.0f * FT2M, 1780.0f * FT2M}, {4080.0f * FT2M, 1780.0f * FT2M},
-        {4250.0f * FT2M, 1700.0f * FT2M}, {4550.0f * FT2M, 1620.0f * FT2M}, {4800.0f * FT2M, 1680.0f * FT2M}
+        {0.0f * FT2M, 1680.0f * FT2M},     {600.0f * FT2M, 1720.0f * FT2M},
+        {1300.0f * FT2M, 1660.0f * FT2M},   {2000.0f * FT2M, 1520.0f * FT2M},
+        {2800.0f * FT2M, 1380.0f * FT2M},   {3500.0f * FT2M, 1440.0f * FT2M},
+        {4200.0f * FT2M, 1580.0f * FT2M},   {4900.0f * FT2M, 1660.0f * FT2M},
+        {5600.0f * FT2M, 1740.0f * FT2M},   {6300.0f * FT2M, 1890.0f * FT2M},
+        {7000.0f * FT2M, 1940.0f * FT2M},   {7700.0f * FT2M, 1820.0f * FT2M},
+        {8400.0f * FT2M, 1650.0f * FT2M},   {9100.0f * FT2M, 1480.0f * FT2M},
+        {9800.0f * FT2M, 1460.0f * FT2M},   {10600.0f * FT2M, 1580.0f * FT2M},
+        {11500.0f * FT2M, 1720.0f * FT2M},  {12400.0f * FT2M, 1780.0f * FT2M},
+        {13400.0f * FT2M, 1680.0f * FT2M},  {14400.0f * FT2M, 1680.0f * FT2M}
     };
-
-    m_pads = {
-        {500.0f * FT2M, 800.0f * FT2M, 1680.0f * FT2M, 2, "2X", -120.0f * FT2M, 120.0f * FT2M},
-        {1600.0f * FT2M, 1820.0f * FT2M, 1620.0f * FT2M, 3, "3X", -100.0f * FT2M, 100.0f * FT2M},
-        {2290.0f * FT2M, 2390.0f * FT2M, 1920.0f * FT2M, 5, "5X",  -70.0f * FT2M,  70.0f * FT2M},
-        {2980.0f * FT2M, 3140.0f * FT2M, 1460.0f * FT2M, 4, "4X",  -85.0f * FT2M,  85.0f * FT2M},
-        {3850.0f * FT2M, 4080.0f * FT2M, 1780.0f * FT2M, 3, "3X", -100.0f * FT2M, 100.0f * FT2M}
-    };
+    m_pads.clear();
 }
 
 void Terrain::generateHadleyRille() {
     m_siteName = "HADLEY RILLE";
-    m_worldWidth = 4800.0f * FT2M;  // [m] 1463.04 m (converted from 4800.0 ft)
-    m_worldHeight = 2500.0f * FT2M; // [m] 762.00 m (converted from 2500.0 ft)
+    m_worldWidth = 14400.0f * FT2M; // [m] 4389.12 m
+    m_worldHeight = 2800.0f * FT2M; // [m] 853.44 m
 
     m_vertices = {
-        {0.0f * FT2M, 1500.0f * FT2M}, {300.0f * FT2M, 1420.0f * FT2M}, {550.0f * FT2M, 1350.0f * FT2M},
-        // 3X Plateau
-        {650.0f * FT2M, 1350.0f * FT2M}, {900.0f * FT2M, 1350.0f * FT2M},
-        {1100.0f * FT2M, 1550.0f * FT2M}, {1350.0f * FT2M, 1800.0f * FT2M}, {1600.0f * FT2M, 2100.0f * FT2M},
-        // 4X Step
-        {1700.0f * FT2M, 2100.0f * FT2M}, {1880.0f * FT2M, 2100.0f * FT2M},
-        {2000.0f * FT2M, 2320.0f * FT2M}, {2200.0f * FT2M, 2400.0f * FT2M},
-        // 5X Deep Rille canyon
-        {2280.0f * FT2M, 2400.0f * FT2M}, {2380.0f * FT2M, 2400.0f * FT2M},
-        {2500.0f * FT2M, 2320.0f * FT2M}, {2700.0f * FT2M, 2050.0f * FT2M}, {2950.0f * FT2M, 1750.0f * FT2M}, {3200.0f * FT2M, 1500.0f * FT2M},
-        // 5X High Pinnacle
-        {3280.0f * FT2M, 1500.0f * FT2M}, {3380.0f * FT2M, 1500.0f * FT2M},
-        {3550.0f * FT2M, 1680.0f * FT2M}, {3800.0f * FT2M, 1820.0f * FT2M},
-        // 2X Broad shelf
-        {3900.0f * FT2M, 1820.0f * FT2M}, {4350.0f * FT2M, 1820.0f * FT2M},
-        {4550.0f * FT2M, 1700.0f * FT2M}, {4800.0f * FT2M, 1600.0f * FT2M}
+        {0.0f * FT2M, 1500.0f * FT2M},     {700.0f * FT2M, 1400.0f * FT2M},
+        {1400.0f * FT2M, 1340.0f * FT2M},   {2100.0f * FT2M, 1350.0f * FT2M},
+        {2900.0f * FT2M, 1560.0f * FT2M},   {3700.0f * FT2M, 1820.0f * FT2M},
+        {4500.0f * FT2M, 2120.0f * FT2M},   {5300.0f * FT2M, 2320.0f * FT2M},
+        {6100.0f * FT2M, 2440.0f * FT2M},   {6900.0f * FT2M, 2450.0f * FT2M}, // Deep rille
+        {7600.0f * FT2M, 2320.0f * FT2M},   {8400.0f * FT2M, 2040.0f * FT2M},
+        {9200.0f * FT2M, 1720.0f * FT2M},   {10000.0f * FT2M, 1480.0f * FT2M},
+        {10800.0f * FT2M, 1520.0f * FT2M},  {11600.0f * FT2M, 1680.0f * FT2M},
+        {12400.0f * FT2M, 1820.0f * FT2M},  {13300.0f * FT2M, 1740.0f * FT2M},
+        {14400.0f * FT2M, 1600.0f * FT2M}
     };
-
-    m_pads = {
-        {650.0f * FT2M, 900.0f * FT2M, 1350.0f * FT2M, 3, "3X", -100.0f * FT2M, 100.0f * FT2M},
-        {1700.0f * FT2M, 1880.0f * FT2M, 2100.0f * FT2M, 4, "4X",  -90.0f * FT2M,  90.0f * FT2M},
-        {2280.0f * FT2M, 2380.0f * FT2M, 2400.0f * FT2M, 5, "5X",  -70.0f * FT2M,  70.0f * FT2M},
-        {3280.0f * FT2M, 3380.0f * FT2M, 1500.0f * FT2M, 5, "5X",  -70.0f * FT2M,  70.0f * FT2M},
-        {3900.0f * FT2M, 4350.0f * FT2M, 1820.0f * FT2M, 2, "2X", -125.0f * FT2M, 125.0f * FT2M}
-    };
+    m_pads.clear();
 }
 
 void Terrain::buildSegments() {
     m_segments.clear();
     for (size_t i = 1; i < m_vertices.size(); ++i) {
         TerrainSegment seg;
-        seg.x1 = m_vertices[i - 1].first;  // [m]
-        seg.y1 = m_vertices[i - 1].second; // [m]
-        seg.x2 = m_vertices[i].first;      // [m]
-        seg.y2 = m_vertices[i].second;     // [m]
-
-        // Check if this segment corresponds to any landing pad
+        seg.x1 = m_vertices[i - 1].first;
+        seg.y1 = m_vertices[i - 1].second;
+        seg.x2 = m_vertices[i].first;
+        seg.y2 = m_vertices[i].second;
         seg.isLandingPad = false;
         seg.multiplier = 0;
-        const float tolerance = 0.35f; // [m]
-        for (const auto& pad : m_pads) {
-            if (std::abs(seg.y1 - pad.y) < tolerance && std::abs(seg.y2 - pad.y) < tolerance &&
-                seg.x1 >= pad.x1 - tolerance && seg.x2 <= pad.x2 + tolerance) {
-                seg.isLandingPad = true;
-                seg.multiplier = pad.multiplier;
-                break;
-            }
-        }
         m_segments.push_back(seg);
     }
 }
@@ -237,16 +177,7 @@ float Terrain::getCenterlineHeightAt(float x) const {
     return m_worldHeight;
 }
 
-bool Terrain::isPointOnPad(float x, float z, int& outMultiplier, float& outPadY) const {
-    const float tol = 0.35f;
-    for (const auto& pad : m_pads) {
-        if (x >= pad.x1 - tol && x <= pad.x2 + tol &&
-            z >= pad.z1 - tol && z <= pad.z2 + tol) {
-            outMultiplier = pad.multiplier;
-            outPadY = pad.y;
-            return true;
-        }
-    }
+bool Terrain::isPointOnPad(float /*x*/, float /*z*/, int& outMultiplier, float& outPadY) const {
     outMultiplier = 0;
     outPadY = 0.0f;
     return false;
@@ -258,26 +189,7 @@ float Terrain::getSurfaceHeightAt(float x, float z) const {
         return baseY;
     }
 
-    // Check if inside or transitioning out of a 3D flat landing pad deck
     float padMask = 1.0f;
-    for (const auto& pad : m_pads) {
-        if (x >= pad.x1 && x <= pad.x2 && z >= pad.z1 && z <= pad.z2) {
-            return pad.y;
-        }
-        // Smooth transition skirt around each 3D landing pad
-        float dx = 0.0f;
-        if (x < pad.x1) dx = pad.x1 - x;
-        else if (x > pad.x2) dx = x - pad.x2;
-        float dz = 0.0f;
-        if (z < pad.z1) dz = pad.z1 - z;
-        else if (z > pad.z2) dz = z - pad.z2;
-
-        if (dx < 25.0f && dz < 35.0f) {
-            float d = std::sqrt(dx * dx + dz * dz);
-            float m = std::clamp(d / 35.0f, 0.0f, 1.0f);
-            padMask = std::min(padMask, m * m * (3.0f - 2.0f * m));
-        }
-    }
 
     // 3D lunar topography away from Z=0 centerline (remember -Y is upward elevation!)
     float absZ = std::abs(z);
@@ -498,14 +410,13 @@ bool Terrain::castRay3D(const Vec3& origin, const Vec3& dir, float maxDist, RayH
 void Terrain::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
     SDL_Color terrainColor = {210, 240, 210, 255}; // Classic phosphor greenish-white
     SDL_Color gridSubColor = {95, 165, 120, 175};  // 3D depth contour lattice green
-    SDL_Color padColor = {255, 255, 100, 255};     // Vibrant glowing yellow for pads
-    SDL_Color beaconColor = {100, 240, 255, 160};  // Pad corner beacon posts
+    SDL_Color dotColor = {120, 215, 160, 180};      // Little dots between wireframe lines
 
     if (cam.use3D) {
         // 1. Render 3D Wireframe Lunar Surface Lattice around the camera
         const float halfDepth = m_worldDepth * 0.5f;
-        const int numZSlices = 15; // Z slices from -halfDepth to +halfDepth
-        const int numXCols = 64;   // X samples across world width
+        const int numZSlices = 21; // Z slices from -halfDepth to +halfDepth
+        const int numXCols = 96;   // X samples across world width
 
         float zStep = m_worldDepth / (float)(numZSlices - 1);
         float xStep = m_worldWidth / (float)(numXCols - 1);
@@ -538,65 +449,21 @@ void Terrain::render(SDL_Renderer* renderer, const Camera2D& cam, float glow) {
                 VectorRenderer::drawLineWorld3D(renderer, cam, x, y1, z1, x, y2, z2, gridSubColor, glow * 0.65f, 1);
             }
         }
+
+        // 2. Add little dots between the wire frame terrain (centered inside each lattice cell)
+        for (int iz = 0; iz < numZSlices - 1; ++iz) {
+            float midZ = -halfDepth + (iz + 0.5f) * zStep;
+            for (int ix = 0; ix < numXCols - 1; ++ix) {
+                float midX = (ix + 0.5f) * xStep;
+                float midY = getSurfaceHeightAt(midX, midZ);
+                VectorRenderer::drawPointWorld3D(renderer, cam, midX, midY, midZ, dotColor, glow * 0.75f, 1);
+            }
+        }
     }
 
-    // 2. Draw primary centerline ridge segments (ensures crisp vertices along Z=0)
+    // 3. Draw primary centerline ridge segments (ensures crisp vertices along Z=0)
     for (const auto& seg : m_segments) {
-        if (!seg.isLandingPad) {
-            VectorRenderer::drawLineWorld3D(renderer, cam, seg.x1, seg.y1, 0.0f, seg.x2, seg.y2, 0.0f,
-                                            terrainColor, glow, 1);
-        }
-    }
-
-    // 3. Render 3D Landing Pad Decks, Crosshairs, Corner Beacons & Multiplier Labels
-    for (const auto& pad : m_pads) {
-        if (cam.use3D) {
-            float x1 = pad.x1, x2 = pad.x2;
-            float z1 = pad.z1, z2 = pad.z2;
-            float y  = pad.y;
-            float yBot = y + 4.5f * FT2M;
-            float postTop = y - 10.0f * FT2M;
-            float midX = 0.5f * (x1 + x2);
-            float midZ = 0.5f * (z1 + z2);
-
-            // Top 3D landing deck perimeter
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, y, z1, x2, y, z1, padColor, glow * 1.5f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, y, z1, x2, y, z2, padColor, glow * 1.5f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, y, z2, x1, y, z2, padColor, glow * 1.5f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, y, z2, x1, y, z1, padColor, glow * 1.5f, 2);
-
-            // Lower deck structural skirt
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, yBot, z1, x2, yBot, z1, padColor, glow, 1);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, yBot, z1, x2, yBot, z2, padColor, glow, 1);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, yBot, z2, x1, yBot, z2, padColor, glow, 1);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, yBot, z2, x1, yBot, z1, padColor, glow, 1);
-
-            // Centerline crosshair & target diamond on pad surface
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, y, midZ, x2, y, midZ, padColor, glow * 1.2f, 1);
-            VectorRenderer::drawLineWorld3D(renderer, cam, midX, y, z1, midX, y, z2, padColor, glow * 1.2f, 1);
-
-            // 4 Corner vertical beacon posts
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, postTop, z1, x1, yBot, z1, beaconColor, glow * 1.3f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, postTop, z1, x2, yBot, z1, beaconColor, glow * 1.3f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x2, postTop, z2, x2, yBot, z2, beaconColor, glow * 1.3f, 2);
-            VectorRenderer::drawLineWorld3D(renderer, cam, x1, postTop, z2, x1, yBot, z2, beaconColor, glow * 1.3f, 2);
-        } else {
-            // Classic 2D pad representation
-            VectorRenderer::drawLineWorld(renderer, cam, pad.x1, pad.y, pad.x2, pad.y, padColor, glow * 1.5f, 2);
-            VectorRenderer::drawLineWorld(renderer, cam, pad.x1, pad.y + 4.0f * FT2M, pad.x2, pad.y + 4.0f * FT2M, padColor, glow, 1);
-            VectorRenderer::drawLineWorld(renderer, cam, pad.x1, pad.y - 6.0f * FT2M, pad.x1, pad.y + 6.0f * FT2M, padColor, glow, 2);
-            VectorRenderer::drawLineWorld(renderer, cam, pad.x2, pad.y - 6.0f * FT2M, pad.x2, pad.y + 6.0f * FT2M, padColor, glow, 2);
-        }
-
-        // Render Multiplier text under each pad
-        float centerX = (pad.x1 + pad.x2) * 0.5f;
-        float centerY = pad.y + 18.0f * FT2M;
-        float centerZ = cam.use3D ? pad.z1 : 0.0f;
-
-        float sx, sy;
-        if (cam.worldToScreen3D(centerX, centerY, centerZ, sx, sy)) {
-            float fontScale = std::clamp((cam.zoom * FT2M) * 2.2f, 1.2f, 3.8f);
-            VectorFont::drawTextCentered(renderer, pad.label, sx, sy, fontScale, padColor, glow);
-        }
+        VectorRenderer::drawLineWorld3D(renderer, cam, seg.x1, seg.y1, 0.0f, seg.x2, seg.y2, 0.0f,
+                                        terrainColor, glow, 1);
     }
 }
