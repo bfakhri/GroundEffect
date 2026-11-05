@@ -726,7 +726,7 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             sound.playRCS();
         }
         // Direct FBW torque assist: smooth, critically damped rate damping with zero snap-back
-        totalRollAccel += std::clamp(rollRateErr * 12.0f + rollAngleErr * 14.0f, -28.0f, 28.0f);
+        totalRollAccel += std::clamp(rollRateErr * 14.0f + rollAngleErr * 15.0f, -30.0f, 30.0f);
 
         // PD Controller for Pitch:
         float pitchRateErr  = m_targetPitchRate - m_pitchVel;
@@ -750,7 +750,7 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
             m_rcsPuffFore = 0.1f;
             sound.playRCS();
         }
-        totalPitchAccel += std::clamp(pitchRateErr * 12.0f + pitchAngleErr * 14.0f, -28.0f, 28.0f);
+        totalPitchAccel += std::clamp(pitchRateErr * 14.0f + pitchAngleErr * 15.0f, -30.0f, 30.0f);
 
         // PD Controller for Yaw:
         float yawRateErr  = m_targetYawRate - m_yawVel;
@@ -815,86 +815,8 @@ void Battleship::updatePhysics(float dt, float throttleLeft, float throttleRight
 
 
 
-    // 3. Tucked-In Wing Aerodynamics: Standard Quadratic (v^2) Lift, Banked Turning & Glide
-    //    - Scales strictly with v^2 everywhere: minimal lift at low speeds (requiring bottom VTOL thrusters),
-    //      high L/D glide efficiency at speed, and high-G normal lift when banked + pitching up so the ship
-    //      turns on a dime energy-efficiently without burning fuel.
+    // 3. Pure Rocket / FPV Drone Dynamics: Wing lift removed per user specification
     m_lastWingLiftAccel = {0.0f, 0.0f, 0.0f};
-    {
-        Vec3 vel{m_vx, m_vy, m_vz};
-        float speedSq = vel.lengthSq();
-        if (speedSq > 0.1f && !m_airBrakesActive) {
-            float speed = std::sqrt(speedSq);
-            Vec3 vHat = vel / speed;
-            Vec3 shipDown  = localToWorldDir({0.0f, 1.0f, 0.0f}); // +Y ventral belly
-            Vec3 shipUp    = shipDown * -1.0f;                    // -Y dorsal wing lift normal
-            Vec3 shipFwd   = localToWorldDir({0.0f, 0.0f, 1.0f}); // +Z nose
-
-            float vFwd  = vel.dot(shipFwd);
-            float vDown = vel.dot(shipDown);
-            // Measure horizontal sideslip relative to the heading plane so banking + pitching
-            // does not induce artificial opposing sideslip force during banked turns
-            Vec3 horizRight{std::cos(m_yaw), 0.0f, -std::sin(m_yaw)};
-            float vSide = vel.dot(horizRight);
-
-            if (std::abs(vFwd) > 0.1f) {
-                // Quadratic wing lift: L = WING_LIFT_COEFF * v^2 * sin(2*alpha)
-                //                        = WING_LIFT_COEFF * 2 * (vDown + alpha0 * |vFwd|) * |vFwd|
-                // Strictly homogeneous of degree 2 in velocity (exact v^2 scaling at all speeds).
-                const float alpha0 = 0.075f; // Built-in wing camber incidence (~4.3 deg)
-                float bankedElevatorAoA = std::max(0.0f, -m_pitch) * std::abs(std::sin(m_angle)) * std::abs(vFwd);
-                float effVDown = std::max(vDown, bankedElevatorAoA) + alpha0 * std::abs(vFwd);
-                float liftMag = WING_LIFT_COEFF * 2.0f * effVDown * std::abs(vFwd);
-
-                // Resolve lift direction perpendicular to velocity vHat toward shipUp (-Y)
-                // so banked turns rotate the velocity vector without losing speed.
-                Vec3 liftDir = shipUp - vHat * shipUp.dot(vHat);
-                float liftDirLen = liftDir.length();
-                if (liftDirLen > 1e-4f) {
-                    liftDir = liftDir / liftDirLen;
-                } else {
-                    liftDir = shipUp;
-                }
-                Vec3 liftAccel = liftDir * liftMag;
-
-                // Canted twin dorsal tail fins: quadratic sideslip restoring force in high-speed flight
-                float highSpeedFlight = (m_hoverThrusterThrottle > 0.01f)
-                    ? 0.0f
-                    : std::clamp((speed - 12.0f) / 10.0f, 0.0f, 1.0f);
-                float levelFactor = std::max(0.0f, std::cos(m_angle)) * highSpeedFlight;
-                Vec3 sideDir = horizRight - vHat * horizRight.dot(vHat);
-                float sideDirLen = sideDir.length();
-                if (sideDirLen > 1e-4f) sideDir = sideDir / sideDirLen;
-                Vec3 sideAccel = sideDir * (-0.015f * levelFactor * vSide * std::abs(vFwd));
-
-                // Low parasitic + induced drag (quadratic in v) for long airplane glide range
-                float sinAlpha = std::clamp(vDown / speed, -0.8f, 0.8f);
-                float dragMag = (0.00012f + 0.0014f * sinAlpha * sinAlpha) * (vFwd * vFwd);
-                Vec3 aeroDrag = vHat * (-dragMag);
-
-                m_lastWingLiftAccel = liftAccel + sideAccel;
-                totalWorldA += m_lastWingLiftAccel + aeroDrag;
-
-                if (m_lastWingLiftAccel.lengthSq() > 0.01f) {
-                    m_forceVectors.push_back({m_x, m_y - 2.0f * FT2M, m_z,
-                                              m_lastWingLiftAccel.x, m_lastWingLiftAccel.y, m_lastWingLiftAccel.z,
-                                              {100, 220, 255, 240}, "LIFT"});
-                }
-
-                // Coordinated banked turn yaw rate + aerodynamic weathervaning in high-speed flight
-                if (highSpeedFlight > 0.0f) {
-                    float turnYawRate = (liftAccel.dot(horizRight)) / std::max(speed, 5.0f);
-                    totalYawAccel += ((turnYawRate - m_yawVel) * 4.5f + (vSide / (speed + 1.0f)) * 2.2f) * highSpeedFlight;
-                }
-                if (std::abs(appliedPitch) < 0.05f) {
-                    totalPitchAccel -= m_pitchVel * 0.65f;
-                }
-                if (std::abs(appliedRotate) < 0.05f) {
-                    totalRollAccel  -= m_angularVel * 0.65f;
-                }
-            }
-        }
-    }
 
     // 4. Maglev Hover (Task 2.1) & Normal-Axis Magnetic Damping (Task 2.2)
     updateHoverThrusters(dt, appliedRotate, appliedPitch, diffThrust, terrain, sound,

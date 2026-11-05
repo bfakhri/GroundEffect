@@ -47,9 +47,9 @@ enum class CameraViewMode {
 
 // Rocket League ProfileCameraSettings parameters
 struct RocketLeagueCameraSettings {
-    float fov = 110.0f;            // [deg] Horizontal Field of View (Rocket League range: 60..110, pro meta: 110)
-    float distance = 270.0f;       // [uu] Base camera distance behind vehicle (pro meta: 270 -> ~82.3 m)
-    float height = 100.0f;         // [uu] Vertical height offset above vehicle center (pro meta: 100 -> ~9.1 m)
+    float fov = 115.0f;            // [deg] Horizontal Field of View (wider FOV: 115 deg)
+    float distance = 270.0f;       // [uu] Base camera distance behind vehicle
+    float height = 100.0f;         // [uu] Vertical height offset above vehicle center
     float pitch = -4.0f;           // [deg] Downward pitch angle tilt (Rocket League range: -15..0, pro meta: -4.0)
     float stiffness = 0.40f;       // [0.0..1.0] Spring stiffness & supersonic distance stretch factor (pro meta: 0.40)
     float swivelSpeed = 5.00f;     // [1.0..10.0] Right-stick camera swivel & auto-center speed (pro meta: 5.0)
@@ -69,9 +69,9 @@ struct Camera2D {
     CameraViewMode viewMode = CameraViewMode::CHASE_3D;
     float camYaw = 0.0f;     // [rad] Orbit yaw angle in XZ plane (0 = looking from -Z toward +Z)
     float camPitch = 0.30f;  // [rad] Elevation pitch angle above horizon (~17.2 deg looking down)
-    float fovY = 0.92f;      // [rad] Vertical field of view (~52.7 deg)
+    float fovY = 1.45f;      // [rad] Vertical field of view (~83.1 deg, ~115 deg horizontal FOV on 16:9)
     float nearPlane = 1.5f;  // [m] Near clipping plane distance
-    float farPlane = 2600.0f;// [m] Far reference distance for phosphor depth shading
+    float farPlane = 3200.0f;// [m] Far reference distance for phosphor depth shading
     RocketLeagueCameraSettings rlSettings{};
 
     // Full 6-DOF custom orthonormal camera basis (used when anchored 1:1 to ship's 3D rotation matrix)

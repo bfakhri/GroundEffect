@@ -66,12 +66,12 @@ bool Game::init(int width, int height) {
 
     m_camera.screenWidth = m_screenWidth;
     m_camera.screenHeight = m_screenHeight;
-    float heightOffsetM = m_camera.rlSettings.height * 0.035f; // 100 uu -> 3.5 m local focus offset above ship
+    float heightOffsetM = m_camera.rlSettings.height * 0.055f; // 100 uu -> 5.5 m local focus offset above ship
     Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
     m_camera.x = focusPos.x;
     m_camera.y = focusPos.y;
     m_camera.z = focusPos.z;
-    m_camera.zoom = m_camera.getFocalLengthPx() / 30.0f; // Close 30m Rocket League chase distance
+    m_camera.zoom = m_camera.getFocalLengthPx() / 52.0f; // Farther ~52m Rocket League chase distance
     m_camera.use3D = true;
     m_camera.viewMode = CameraViewMode::CHASE_3D;
     m_camTrackYaw = 0.0f;
@@ -320,12 +320,12 @@ void Game::handleInput() {
         float startX = 600.0f * FT2M;
         float startY = m_terrain.getSurfaceHeightAt(startX, 0.0f) - 12.0f * FT2M;
         m_battleship.resetLanded(startX, startY, std::max(m_battleship.getFuel(), 600.0f * LB2KG), 0.0f);
-        float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
+        float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.055f) : 0.0f;
         Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
         m_camera.x = focusPos.x;
         m_camera.y = focusPos.y;
         m_camera.z = focusPos.z;
-        m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 30.0f) : (2.10f / FT2M);
+        m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 52.0f) : (2.10f / FT2M);
         m_camTrackYaw = 0.0f;
         m_camTrackPitch = 0.22f;
         m_camSwivelYaw = 0.0f;
@@ -345,12 +345,12 @@ void Game::handleInput() {
             float startX = 600.0f * FT2M;
             float startY = m_terrain.getSurfaceHeightAt(startX, 0.0f) - 12.0f * FT2M;
             m_battleship.resetLanded(startX, startY, nextFuel, 0.0f);
-            float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.035f) : 0.0f;
+            float heightOffsetM = m_camera.use3D ? (m_camera.rlSettings.height * 0.055f) : 0.0f;
             Vec3 focusPos = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
             m_camera.x = focusPos.x;
             m_camera.y = focusPos.y;
             m_camera.z = focusPos.z;
-            m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 30.0f) : (2.10f / FT2M);
+            m_camera.zoom = m_camera.use3D ? (m_camera.getFocalLengthPx() / 52.0f) : (2.10f / FT2M);
             m_camTrackYaw = 0.0f;
             m_camTrackPitch = 0.22f;
             m_camSwivelYaw = 0.0f;
@@ -491,21 +491,21 @@ void Game::update(float dt) {
     float stiffness = std::clamp(rl.stiffness, 0.0f, 1.0f);
 
     if (m_camera.use3D) {
-        // 1. Close Rocket League Distance (~30m behind ship + slight speed stretch, NO altitude zoom-out)
-        float baseDistM = rl.distance * (30.0f / 270.0f); // 270 -> 30.0 m close third-person distance
+        // 1. Rocket League Chase Distance (~52m behind ship + speed stretch, wide FOV, NO altitude zoom-out)
+        float baseDistM = rl.distance * (52.0f / 270.0f); // 270 -> 52.0 m farther third-person chase distance
         Vec3 vel3D = m_battleship.getVelocity3D();
         float speed = vel3D.length();
         static constexpr float SUPERSONIC_SPEED = 42.0f; // [m/s] Supersonic threshold speed
         float speedRatio = std::clamp(speed / SUPERSONIC_SPEED, 0.0f, 1.0f);
-        float supersonicStretchM = (1.0f - stiffness) * 14.0f * speedRatio;
-        float effectiveDistM     = std::max(12.0f, baseDistM + supersonicStretchM);
+        float supersonicStretchM = (1.0f - stiffness) * 18.0f * speedRatio;
+        float effectiveDistM     = std::max(18.0f, baseDistM + supersonicStretchM);
 
         float targetZoom = m_camera.getFocalLengthPx() / effectiveDistM;
         float zoomRate = 8.0f + stiffness * 16.0f;
         m_camera.zoom += (targetZoom - m_camera.zoom) * (1.0f - std::exp(-zoomRate * dt));
 
         // 2. Focus Point in Ship's Local 3D Frame (P_focus = P_ship + localToWorldDir(0, -Height, 0))
-        float heightOffsetM = rl.height * 0.035f; // 100 -> 3.5 m above ship center of mass along ship's local Up axis
+        float heightOffsetM = rl.height * 0.055f; // 100 -> 5.5 m above ship center of mass along ship's local Up axis
         Vec3 targetFocus = m_battleship.localToWorldPoint({0.0f, -heightOffsetM, 0.0f});
 
         float posRate  = 14.0f + stiffness * 26.0f;

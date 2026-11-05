@@ -186,7 +186,7 @@ public:
     static constexpr float HULL_INERTIA = 12.774f;    // [m^2] Specific rotational moment of inertia (r_g^2)
     static constexpr float RCS_THRUST_ACCEL = 35.0f;  // [m/s^2] Max lateral thrust acceleration from RCS thruster
     static constexpr float SHIP_SCALE = 1.35f;        // [dimensionless] Hull scale factor (1.35x larger battleship)
-    static constexpr float WING_LIFT_COEFF = 0.052f;  // [1/m] Quadratic wing normal lift coefficient (L = k * v^2 * sin(2*alpha))
+    static constexpr float WING_LIFT_COEFF = 0.0f;   // [1/m] Zero wing lift (pure rocket/drone flight per specification)
     static constexpr float MAG_DAMP_MAX_ALT = 45.0f;  // [m] Outer altitude envelope for normal-axis magnetic damping
     static constexpr float MAG_DAMP_COEFF = 8.50f;    // [1/s] Increased eddy-current normal magnetic damping coefficient
 
